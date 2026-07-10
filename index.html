@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fagotti Fullstack · Pasticceria Fagotti</title>
+<meta name="description" content="WorkMor Hub: ordini, prenotazioni, turni, shop e allergeni della tua attività in un solo cruscotto.">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WorkMor Hub">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --ink:#111827;--ink-soft:#4B5468;--paper:#FAF8F3;--card:#FFFFFF;--line:#E7E2D8;
+  --brand:#7C3AED;--brand-deep:#5B21B6;--brand-tint:#F5F3FF;
+  --gold:#C9A84C;--success:#16A34A;--success-tint:#DCFCE7;--warning:#D97706;--warning-tint:#FEF3C7;--danger:#DC2626;--danger-tint:#FEE2E2;
+  --font-d:'Bricolage Grotesque',sans-serif;--font-m:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font-d);background:var(--paper);color:var(--ink);min-height:100vh}
+button{font-family:var(--font-d)}
+
+/* LOGIN */
+#login{position:fixed;inset:0;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;z-index:9999}
+#login.hidden{display:none}
+.l-logo{font-size:34px;font-weight:800;color:#fff}.l-logo span{color:var(--brand)}
+.l-sub{font-family:var(--font-m);font-size:10px;letter-spacing:3px;color:#9ca3af;text-transform:uppercase}
+.l-input{width:100%;max-width:300px;padding:13px 18px;background:#1f2937;border:1.5px solid #374151;color:#fff;border-radius:12px;font-size:15px;outline:none;font-family:var(--font-m)}
+.l-input:focus{border-color:var(--brand)}
+.l-btn{width:100%;max-width:300px;padding:14px;background:var(--brand);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
+.l-btn:hover{background:var(--brand-deep)}
+.l-btn.sec{background:#1f2937;border:1px solid #374151;color:#e5e7eb}
+.l-err{color:#f87171;font-family:var(--font-m);font-size:12px;min-height:16px;text-align:center}
+.l-badge{background:#1f2937;border:1px solid #374151;border-radius:20px;padding:6px 16px;font-family:var(--font-m);font-size:10px;color:var(--gold);letter-spacing:1px}
+
+/* ONBOARDING */
+#onboard{position:fixed;inset:0;background:var(--paper);z-index:9000;display:none;overflow-y:auto;padding:32px 16px}
+#onboard.open{display:block}
+.ob-box{max-width:480px;margin:0 auto}
+.ob-step{font-family:var(--font-m);font-size:10px;letter-spacing:2px;color:var(--brand);text-transform:uppercase;margin-bottom:6px}
+.ob-title{font-size:24px;font-weight:800;margin-bottom:20px}
+.ob-label{font-family:var(--font-m);font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;margin:14px 0 5px;display:block}
+.ob-input,.ob-select{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:15px;font-family:var(--font-d);outline:none;background:var(--card);color:var(--ink)}
+.ob-input:focus,.ob-select:focus{border-color:var(--brand)}
+.ob-next{width:100%;margin-top:24px;padding:14px;background:var(--brand);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
+.plan-card{border:2px solid var(--line);border-radius:16px;padding:18px;margin-bottom:12px;cursor:pointer;background:var(--card)}
+.plan-card.sel{border-color:var(--brand);background:var(--brand-tint)}
+.plan-name{font-weight:800;font-size:16px}
+.plan-price{font-family:var(--font-m);color:var(--brand-deep);font-size:14px;margin:2px 0 8px}
+.plan-feat{font-size:13px;color:var(--ink-soft);line-height:1.7}
+.plan-badge{display:inline-block;background:var(--brand);color:#fff;font-family:var(--font-m);font-size:9px;padding:3px 10px;border-radius:99px;letter-spacing:1px;margin-left:8px;vertical-align:middle}
+
+/* SHELL */
+#app{display:none;min-height:100vh}
+#app.on{display:block}
+.demo-strip{background:var(--gold);color:var(--ink);text-align:center;padding:7px 14px;font-family:var(--font-m);font-size:11px;font-weight:700}
+.hdr{background:var(--card);border-bottom:2px solid var(--ink);padding:10px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.hdr-brand{font-size:17px;font-weight:800;white-space:nowrap}.hdr-brand span{color:var(--brand)}
+.hdr-att{font-family:var(--font-m);font-size:9px;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.bell{position:relative;background:none;border:none;font-size:19px;cursor:pointer}
+.bell-dot{position:absolute;top:-4px;right:-6px;background:var(--danger);color:#fff;font-family:var(--font-m);font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px}
+.usr{background:var(--brand-tint);color:var(--brand-deep);border:none;border-radius:99px;padding:7px 13px;font-weight:700;font-size:12px;cursor:pointer}
+
+/* TAB BAR SCROLLABILE (mobile) + SIDEBAR (desktop) */
+.tabbar{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:45;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabbar::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:8px 15px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:13px;cursor:pointer;color:var(--ink-soft);white-space:nowrap}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tab .lk{font-size:10px;opacity:.6;margin-left:3px}
+.layout{display:flex;min-height:calc(100vh - 110px)}
+.side{display:none}
+.content{flex:1;padding:18px 14px;max-width:1080px;margin:0 auto;width:100%}
+@media(min-width:900px){
+  .tabbar{display:none}
+  .side{display:block;width:216px;background:var(--card);border-right:1px solid var(--line);padding:16px 10px;flex-shrink:0}
+  .side-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;color:var(--ink-soft);margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+  .side-item.on{background:var(--ink);color:#fff}
+  .side-item:not(.on):hover{background:var(--paper)}
+  .side-item .lk{margin-left:auto;font-size:11px;opacity:.6}
+  .side-sep{border-top:1px solid var(--line);margin:10px 6px}
+  .content{padding:24px 22px}
+}
+
+/* DASHBOARD */
+.pg-title{font-size:21px;font-weight:800;margin-bottom:3px;text-transform:capitalize}
+.pg-sub{font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr;gap:13px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}.kcard.wide{grid-column:span 2}}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:0 1px 2px rgba(19,26,42,.04)}
+.k-top{display:flex;align-items:center;gap:8px;font-family:var(--font-m);font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+.k-num{font-size:29px;font-weight:800}
+.k-det{font-size:13px;color:var(--ink-soft);margin-top:4px}
+.k-det b{color:var(--brand-deep)}
+.k-link{display:inline-block;margin-top:11px;font-family:var(--font-m);font-size:11px;color:var(--brand-deep);cursor:pointer;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:var(--brand-tint);color:var(--brand-deep);font-family:var(--font-m);font-size:11px;padding:4px 10px;border-radius:99px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:60px;margin:12px 0 18px}
+.bar{flex:1;background:var(--brand-tint);border-radius:5px 5px 0 0;position:relative;min-height:6px}
+.bar.today{background:var(--brand)}
+.bar-lbl{position:absolute;bottom:-15px;left:0;right:0;text-align:center;font-family:var(--font-m);font-size:8px;color:var(--ink-soft)}
+.ntf{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--paper);font-size:13px}
+.ntf:last-child{border:none}
+.ntf-time{font-family:var(--font-m);font-size:10px;color:var(--ink-soft);white-space:nowrap;margin-left:auto}
+
+/* LISTE MODULI */
+.bar-actions{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.btn-add{background:var(--brand);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer}
+.filt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.filt::-webkit-scrollbar{display:none}
+.f-chip{flex-shrink:0;padding:7px 13px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-family:var(--font-m);font-size:11px;cursor:pointer;color:var(--ink-soft)}
+.f-chip.on{background:var(--brand-tint);border-color:var(--brand);color:var(--brand-deep);font-weight:700}
+.row{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:9px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.row-main{flex:1;min-width:0}
+.row-t{font-weight:700;font-size:14px}
+.row-s{font-size:12px;color:var(--ink-soft);margin-top:2px;font-family:var(--font-m)}
+.row-price{font-family:var(--font-m);font-weight:700;color:var(--brand-deep);white-space:nowrap}
+.st{flex-shrink:0;font-family:var(--font-m);font-size:10px;font-weight:700;padding:5px 11px;border-radius:99px;white-space:nowrap;border:none;cursor:pointer}
+.st-nuovo{background:var(--danger-tint);color:var(--danger)}
+.st-confermato{background:var(--warning-tint);color:var(--warning)}
+.st-in_preparazione{background:var(--brand-tint);color:var(--brand-deep)}
+.st-pronto{background:var(--success-tint);color:var(--success)}
+.st-ritirato,.st-arrivata{background:#F1F5F9;color:#64748B}
+.st-confermata{background:var(--success-tint);color:var(--success)}
+.st-no_show{background:var(--danger-tint);color:var(--danger)}
+.empty{text-align:center;padding:44px 20px;color:var(--ink-soft);font-size:14px}
+.empty .e-ico{font-size:38px;margin-bottom:8px}
+
+/* TURNI */
+.g-day{font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--brand-deep);margin:16px 0 7px}
+.t-pill{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 13px;margin:0 6px 6px 0;font-size:12px}
+.t-pill b{font-size:12px}
+.t-pill .t-h{font-family:var(--font-m);font-size:11px;color:var(--brand-deep)}
+.t-pill .t-x{cursor:pointer;color:var(--danger);font-weight:700;margin-left:2px}
+
+/* CLIENTI */
+.tbl{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.tbl th{font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft);text-align:left;padding:11px 13px;background:var(--paper);border-bottom:1px solid var(--line)}
+.tbl td{padding:11px 13px;font-size:13px;border-bottom:1px solid var(--paper)}
+.tbl tr:last-child td{border:none}
+.tag-pill{display:inline-block;background:var(--brand-tint);color:var(--brand-deep);font-family:var(--font-m);font-size:10px;padding:2px 8px;border-radius:99px;margin:1px 3px 1px 0}
+.tblwrap{overflow-x:auto}
+
+/* PLACEHOLDER */
+.mod-hero{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:38px 22px;text-align:center;max-width:520px;margin:32px auto}
+.mod-hero .ico{font-size:42px;margin-bottom:10px}
+.mod-hero h2{font-size:19px;font-weight:800;margin-bottom:8px}
+.mod-hero p{font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:14px}
+.mod-hero .tag{display:inline-block;background:var(--brand-tint);color:var(--brand-deep);font-family:var(--font-m);font-size:11px;padding:5px 14px;border-radius:99px;font-weight:700}
+
+/* IMPOSTAZIONI */
+.set-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:19px;margin-bottom:13px;max-width:560px}
+.set-title{font-size:15px;font-weight:800;margin-bottom:12px}
+.set-save{margin-top:14px;padding:11px 20px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}
+.piano-now{background:var(--brand-tint);border-radius:12px;padding:13px;font-size:14px}
+.piano-now b{color:var(--brand-deep)}
+
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(17,24,39,.55);z-index:200;display:none;align-items:flex-end;justify-content:center}
+@media(min-width:700px){.modal{align-items:center}}
+.modal.open{display:flex}
+.m-box{background:var(--card);border-radius:22px 22px 0 0;padding:22px 18px 30px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto}
+@media(min-width:700px){.m-box{border-radius:22px;padding:26px 24px}}
+.m-title{font-size:18px;font-weight:800;margin-bottom:14px}
+.m-close{float:right;background:var(--paper);border:none;width:32px;height:32px;border-radius:99px;font-size:15px;cursor:pointer}
+.m-save{width:100%;margin-top:20px;padding:14px;background:var(--brand);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
+.m-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="l-logo">Fagotti <span>Fullstack</span></div>
+  <div class="l-sub">Pasticceria Fagotti · cruscotto unico</div>
+  <div class="l-badge">⭐ v0.1 · FONDAMENTA + TURNI</div>
+  <input class="l-input" type="password" id="l-pwd" placeholder="Password" autocomplete="off">
+  <div class="l-err" id="l-err"></div>
+  <button class="l-btn" onclick="doLogin()">Entra →</button>
+</div>
+
+<div id="onboard">
+  <div class="ob-box">
+    <div id="ob-1">
+      <div class="ob-step">Passo 1 di 2</div>
+      <div class="ob-title">La tua attività</div>
+      <span class="ob-label">Nome attività</span>
+      <input class="ob-input" id="ob-nome" placeholder="Es. Pasticceria Rossi">
+      <span class="ob-label">Tipo</span>
+      <select class="ob-select" id="ob-tipo">
+        <option value="pasticceria">Pasticceria</option><option value="panificio">Panificio</option>
+        <option value="bar">Bar / Caffetteria</option><option value="pizzeria">Pizzeria</option>
+        <option value="gelateria">Gelateria</option><option value="ristorante">Ristorante</option>
+        <option value="altro">Altro</option>
+      </select>
+      <span class="ob-label">Città</span>
+      <input class="ob-input" id="ob-citta" placeholder="Es. Roma">
+      <button class="ob-next" onclick="obNext()">Avanti →</button>
+    </div>
+    <div id="ob-2" style="display:none">
+      <div class="ob-step">Passo 2 di 2</div>
+      <div class="ob-title">Scegli il piano</div>
+      <div class="plan-card" data-p="hub_starter" onclick="pickPlan(this)"><div class="plan-name">Hub Starter</div><div class="plan-price">9,90€/mese</div><div class="plan-feat">Dashboard · Turni · Ordini · CRM clienti · 1 utente</div></div>
+      <div class="plan-card sel" data-p="hub_pro" onclick="pickPlan(this)"><div class="plan-name">Hub Pro<span class="plan-badge">CONSIGLIATO</span></div><div class="plan-price">14,90€/mese · trial 14 giorni gratis</div><div class="plan-feat">Starter + Prenotazioni · Shop · Allergeni · Notifiche · 3 utenti · Analytics</div></div>
+      <div class="plan-card" data-p="hub_business" onclick="pickPlan(this)"><div class="plan-name">Hub Business</div><div class="plan-price">34,90€/mese</div><div class="plan-feat">Pro + Bot WhatsApp automatico · Multi-sede · Utenti illimitati · Export PDF · Supporto prioritario</div></div>
+      <button class="ob-next" onclick="obFinish()">Inizia il trial gratuito →</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="demo-strip" id="demo-strip" style="display:none">🎯 MODALITÀ DEMO — dati di esempio salvati in locale · configura Supabase per l'uso reale</div>
+  <div class="hdr">
+    <div><div class="hdr-att" id="hdr-att">Pasticceria Fagotti</div><div class="hdr-brand">Fagotti <span>Fullstack</span></div></div>
+    <div class="hdr-right">
+      <button class="bell" onclick="nav('oggi')">🔔<span class="bell-dot" id="bell-dot" style="display:none">0</span></button>
+      <button class="usr" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+  <div class="tabbar" id="tabbar"></div>
+  <div class="layout">
+    <nav class="side" id="side"></nav>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- MODAL GENERICO -->
+<div class="modal" id="modal"><div class="m-box" id="m-box"></div></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// FAGOTTI HUB — Firebase Firestore (progetto ordini-fagotti-bd9d8)
+// Doc HUB:   hub_app/fagotti          (ordini, shop, ricette, fornitori, clienti)
+// Doc TURNI: turni_app/fagotti_pro    (CONDIVISO con l'app turni-ferie: stesso formato)
+// ═══════════════════════════════════════════════════════════
+var db = null;
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyDTZFJlCeH6pmwE3tp3qU5dGh7x6XrHe2Q",
+    authDomain: "ordini-fagotti-bd9d8.firebaseapp.com",
+    projectId: "ordini-fagotti-bd9d8",
+    storageBucket: "ordini-fagotti-bd9d8.firebasestorage.app",
+    messagingSenderId: "968063747672",
+    appId: "1:968063747672:web:6c2476600dfeea517cec2d"
+  });
+  db = firebase.firestore();
+} catch(e) { console.warn("Firebase init:", e); }
+var DEMO = false;
+
+var ATT = null, USER = null, vista = "oggi";
+var obData = {}, filtroOrdini = "tutti", filtroPren = "oggi";
+var STORE_KEY = "fagotti_fullstack_v1";
+var TURNI_KEY = "workmor_turni_hub_cache_v1";
+
+function G(id){ return document.getElementById(id); }
+function uid(){ return "id-" + Math.random().toString(36).slice(2, 10); }
+function todayStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function eur(n){ return "€ " + (Math.round(n*100)/100).toFixed(2).replace(".", ","); }
+function dataIT(iso){ if(!iso) return ""; var p = iso.split("-"); return p[2] + "/" + p[1]; }
+
+// ═══ DATA LAYER (demo: localStorage · reale: Supabase) ═══
+var DB = {
+  cache: null,
+  seed: function(){
+    return {
+      ordini: [],
+      clienti: [],
+      notifiche: [ { id:uid(), ico:"\ud83c\udf82", txt:"Benvenuta in Fagotti Fullstack! Si parte dai Turni: li testiamo e perfezioniamo, poi sblocchiamo un modulo alla volta.", t:"ora", letta:false } ],
+      shop_articoli: [
+        { id:uid(), nome:"Panettone artigianale", prezzo:28, taglie:["750g","1kg"], colori:["Classico","Cioccolato"], off:"", disp:true },
+        { id:uid(), nome:"Scatola pasticcini misti", prezzo:18, taglie:["12 pz","24 pz"], colori:[], off:"", disp:true },
+        { id:uid(), nome:"Frollini artigianali", prezzo:6.5, taglie:[], colori:["Burro","Cacao"], off:"", disp:true }
+      ],
+      ricette: [
+        { id:uid(), nome:"Torta Millefoglie", ingredienti:"farina di FRUMENTO, LATTE fresco, UOVA, panna (LATTE), zucchero, fragole", allergeni:["Glutine","Latte","Uova"] },
+        { id:uid(), nome:"Pasticcini misti", ingredienti:"farina di FRUMENTO, BURRO, UOVA, MANDORLE, NOCCIOLE, zucchero, cioccolato (puo' contenere SOIA)", allergeni:["Glutine","Latte","Uova","Frutta a guscio","Soia"] }
+      ],
+      fornitori_anag: [
+        { id:uid(), nome:"Doreca", tel:"" },
+        { id:uid(), nome:"Illy", tel:"" },
+        { id:uid(), nome:"Molino Rossi", tel:"" },
+        { id:uid(), nome:"Latteria Val d'Oro", tel:"" }
+      ],
+      dispensa: [
+        { id:uid(), nome:"Coca-Cola 33cl", fornitore:"Doreca", unita:"cartone" },
+        { id:uid(), nome:"Caffe' decaffeinato", fornitore:"Illy", unita:"kg" },
+        { id:uid(), nome:"Farina 00", fornitore:"Molino Rossi", unita:"sacco 25kg" },
+        { id:uid(), nome:"Burro", fornitore:"Latteria Val d'Oro", unita:"panetto 1kg" },
+        { id:uid(), nome:"Uova fresche", fornitore:"Latteria Val d'Oro", unita:"plateau 30" }
+      ],
+      lista_spesa: [],
+      incassoSett: [0, 0, 0, 0, 0, 0]
+    };
+  },
+  load: function(){
+    if (this.cache) return this.cache;
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      this.cache = raw ? JSON.parse(raw) : this.seed();
+    } catch(e) { this.cache = this.seed(); }
+    return this.cache;
+  },
+  save: function(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(this.cache)); } catch(e) {}
+    if (db) {
+      setSyncDot("lo");
+      db.collection("hub_app").doc("fagotti").set(this.cache)
+        .then(function(){ setSyncDot("ok"); })
+        .catch(function(e){ console.warn("FS save:", e); setSyncDot("er"); });
+    }
+  },
+  get: function(coll){ return this.load()[coll] || []; },
+  add: function(coll, obj){
+    obj.id = obj.id || uid();
+    this.load()[coll].unshift(obj);
+    this.save();
+    // Supabase sync (fire-and-forget) quando configurato — mapping tabelle Sprint 2+
+    return obj;
+  },
+  update: function(coll, id, patch){
+    var arr = this.load()[coll];
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === id) { Object.assign(arr[i], patch); break; }
+    }
+    this.save();
+  },
+  remove: function(coll, id){
+    var d = this.load();
+    d[coll] = d[coll].filter(function(x){ return x.id !== id; });
+    this.cache = d;
+    this.save();
+  }
+};
+
+
+// ═══ TDB — TURNI CONDIVISI con app turni-ferie (turni_app/fagotti_pro) ═══
+var TDB = {
+  cache: null,
+  fallback: function(){
+    return {
+      impostazioni: {
+        nomeAttivita: "Pasticceria Fagotti",
+        turni: [
+          { nome:"Mattina", emoji:"🟢", inizio:"07:00", fine:"14:00", colore:"mat" },
+          { nome:"Pomeriggio", emoji:"🔴", inizio:"14:00", fine:"21:00", colore:"pom" },
+          { nome:"", emoji:"🔵", inizio:"", fine:"", colore:"t3", attivo:false }
+        ],
+        dipendenti: [
+          { nome:"Ilaria", ruolo:"Customer & Invoicing", oreContratto:40 },
+          { nome:"Marika", ruolo:"Supervisore", oreContratto:40 },
+          { nome:"Federica", ruolo:"Pasticcera", oreContratto:40 },
+          { nome:"Barbara", ruolo:"Pasticcera", oreContratto:40 },
+          { nome:"Aurora", ruolo:"Pasticcera", oreContratto:40 },
+          { nome:"Giuseppe", ruolo:"Pasticcere", oreContratto:40 },
+          { nome:"Alessandra", ruolo:"Pasticcera", oreContratto:40 },
+          { nome:"Enrico", ruolo:"Pasticcere", oreContratto:40 },
+          { nome:"Yuri", ruolo:"Pasticcere", oreContratto:40 },
+          { nome:"Rita", ruolo:"Pasticcera", oreContratto:40 },
+          { nome:"Sara", ruolo:"Pasticcera (PT Ven-Dom)", oreContratto:20 },
+          { nome:"Noemi", ruolo:"Lab", oreContratto:40 },
+          { nome:"Andrea", ruolo:"Direzione", oreContratto:40 }
+        ]
+      },
+      turni: {}
+    };
+  },
+  load: function(){
+    if (this.cache) return this.cache;
+    try {
+      var raw = localStorage.getItem(TURNI_KEY);
+      this.cache = raw ? JSON.parse(raw) : this.fallback();
+    } catch(e) { this.cache = this.fallback(); }
+    if (!this.cache.turni) this.cache.turni = {};
+    if (!this.cache.impostazioni) this.cache.impostazioni = this.fallback().impostazioni;
+    return this.cache;
+  },
+  save: function(){
+    try { localStorage.setItem(TURNI_KEY, JSON.stringify(this.cache)); } catch(e) {}
+    if (db) {
+      setSyncDot("lo");
+      // ATTENZIONE: doc condiviso con l'app turni-ferie → merge non distruttivo dei soli campi turni
+      db.collection("turni_app").doc("fagotti_pro").set({ turni: this.cache.turni }, { merge: true })
+        .then(function(){ setSyncDot("ok"); })
+        .catch(function(e){ console.warn("FS turni save:", e); setSyncDot("er"); });
+    }
+  },
+  dipendenti: function(){ return this.load().impostazioni.dipendenti || []; },
+  turniConf: function(){ return this.load().impostazioni.turni || []; },
+  get: function(nome, data){ return this.load().turni[nome + "|" + data] || null; },
+  set: function(nome, data, val){
+    if (val === null) delete this.load().turni[nome + "|" + data];
+    else this.load().turni[nome + "|" + data] = val;
+    this.save();
+  }
+};
+function syncAll(callback){
+  if (!db) { callback(); return; }
+  setSyncDot("lo");
+  var done = 0;
+  function fine(){ done++; if (done === 2) { setSyncDot("ok"); callback(); } }
+  db.collection("hub_app").doc("fagotti").get().then(function(doc){
+    if (doc.exists) {
+      DB.cache = doc.data();
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(DB.cache)); } catch(e) {}
+    } else { DB.load(); }
+    fine();
+  }).catch(function(e){ console.warn("FS hub sync:", e); DB.load(); fine(); });
+  db.collection("turni_app").doc("fagotti_pro").get().then(function(doc){
+    if (doc.exists) {
+      TDB.cache = doc.data();
+      if (!TDB.cache.turni) TDB.cache.turni = {};
+      if (!TDB.cache.impostazioni) TDB.cache.impostazioni = TDB.fallback().impostazioni;
+      try { localStorage.setItem(TURNI_KEY, JSON.stringify(TDB.cache)); } catch(e) {}
+    } else { TDB.load(); }
+    fine();
+  }).catch(function(e){ console.warn("FS turni sync:", e); TDB.load(); fine(); });
+}
+function setSyncDot(s){
+  var el = document.getElementById("bell-dot"); // riuso sobrio: log console se UI assente
+  var c = { ok:"#22c55e", lo:"#f59e0b", er:"#ef4444" };
+  var hd = document.querySelector(".hdr-brand span");
+  if (hd) hd.style.color = s === "er" ? "#ef4444" : "#7C3AED";
+  console.log("[sync]", s);
+}
+
+// ═══ AUTH ═══
+var HUB_PWD = "fagotti2024";
+function doLogin(){
+  var pwd = G("l-pwd").value;
+  if (pwd !== HUB_PWD) { G("l-err").textContent = "Password errata."; G("l-pwd").value = ""; return; }
+  sessionStorage.setItem("fh_auth", "1");
+  ATT = { nome:"Pasticceria Fagotti", citta:"Roma", piano:"interno" };
+  G("login").classList.add("hidden");
+  syncAll(function(){ enterApp(); });
+}
+function doLogout(){
+  sessionStorage.removeItem("fh_auth");
+  ATT = null;
+  G("app").classList.remove("on");
+  G("login").classList.remove("hidden");
+}
+
+// ═══ NAVIGATION ═══
+var VOCI = [
+  { v:"oggi", ico:"🏠", n:"Oggi" },
+  { v:"turni", ico:"📅", n:"Turni" },
+  { v:"impostazioni", ico:"⚙️", n:"Impostazioni" }
+];
+// ── ROADMAP FULLSTACK: i moduli si sbloccano uno alla volta dopo il tuo OK ──
+// Step 2: Ordini · Step 3: Allergeni (+import lista ricca) · Step 4: Bot torte WaFagotti · Step 5: Shop con spedizioni
+function vociOrdinate(){
+  var fisseTesta = ["oggi"], fisseCoda = ["impostazioni"];
+  var mobili = VOCI.filter(function(x){ return fisseTesta.indexOf(x.v) < 0 && fisseCoda.indexOf(x.v) < 0; });
+  var ord = DB.load().tabOrder;
+  if (ord && ord.length) {
+    mobili.sort(function(a, b){
+      var ia = ord.indexOf(a.v), ib = ord.indexOf(b.v);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }
+  var testa = VOCI.filter(function(x){ return fisseTesta.indexOf(x.v) >= 0; });
+  var coda = VOCI.filter(function(x){ return fisseCoda.indexOf(x.v) >= 0; });
+  return testa.concat(mobili).concat(coda);
+}
+function moveTab(v, dir){
+  var mobili = vociOrdinate().filter(function(x){ return x.v !== "oggi" && x.v !== "impostazioni"; }).map(function(x){ return x.v; });
+  var i = mobili.indexOf(v), j = i + dir;
+  if (i < 0 || j < 0 || j >= mobili.length) return;
+  var tmp = mobili[i]; mobili[i] = mobili[j]; mobili[j] = tmp;
+  DB.load().tabOrder = mobili; DB.save();
+  buildNav(); render();
+}
+function buildNav(){
+  var tb = "", sd = "";
+  vociOrdinate().forEach(function(x){
+    var lk = x.lock ? ' <span class="lk">🔒</span>' : "";
+    tb += '<button class="tab' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + lk + '</button>';
+    sd += '<button class="side-item' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + (x.lock ? '<span class="lk">' + x.lock + '</span>' : "") + '</button>';
+  });
+  G("tabbar").innerHTML = tb;
+  G("side").innerHTML = sd;
+}
+function enterApp(){
+  G("login").classList.add("hidden");
+  G("app").classList.add("on");
+  G("demo-strip").style.display = "none";
+  G("hdr-att").textContent = ATT.nome || "Pasticceria Fagotti";
+  nav("oggi");
+}
+function nav(v){ vista = v; buildNav(); render(); window.scrollTo(0, 0); }
+
+// ═══ RENDER ═══
+function render(){
+  var c = G("content");
+  var nonLette = DB.get("notifiche").filter(function(n){ return !n.letta; }).length;
+  G("bell-dot").style.display = nonLette ? "block" : "none";
+  G("bell-dot").textContent = nonLette;
+  if (vista === "oggi") c.innerHTML = rOggi();
+  else if (vista === "ordini") c.innerHTML = rOrdini();
+  else if (vista === "turni") c.innerHTML = rTurni();
+  else if (vista === "clienti") c.innerHTML = rClienti();
+  else if (vista === "shop") c.innerHTML = rShop();
+  else if (vista === "allergeni") c.innerHTML = rAllergeni();
+  else if (vista === "fornitori") c.innerHTML = rFornitori();
+  else if (vista === "whatsapp") c.innerHTML = rWhatsApp();
+  else if (vista === "impostazioni") c.innerHTML = rImpostazioni();
+  else c.innerHTML = rPlaceholder(vista);
+}
+
+function rOggi(){
+  var t = todayStr();
+  var ord = DB.get("ordini").filter(function(o){ return o.data === t; });
+  var nuovi = ord.filter(function(o){ return o.stato === "nuovo"; }).length;
+  var prep = ord.filter(function(o){ return o.stato === "in_preparazione"; }).length;
+  var listaSpesa = DB.get("lista_spesa");
+  var oreNow = new Date().getHours() + new Date().getMinutes()/60;
+  var inTurno = [];
+  TDB.dipendenti().forEach(function(dip){
+    var x = TDB.get(dip.nome, t);
+    if (x && x.inizio && x.fine) {
+      var i = parseFloat(x.inizio.split(":")[0]) + parseFloat(x.inizio.split(":")[1])/60;
+      var f = parseFloat(x.fine.split(":")[0]) + parseFloat(x.fine.split(":")[1])/60;
+      if (oreNow >= i && oreNow < f) inTurno.push({ dip: dip.nome });
+    }
+  });
+  var incOggi = ord.filter(function(o){ return o.stato === "pronto" || o.stato === "ritirato"; }).reduce(function(s, o){ return s + o.totale; }, 0);
+  var sett = DB.get("incassoSett").concat([incOggi]);
+  var maxV = Math.max.apply(null, sett.concat([1]));
+
+  var giorni = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
+  var mesi = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+  var d = new Date();
+  var h = '<div class="pg-title">Oggi, ' + giorni[d.getDay()] + ' ' + d.getDate() + ' ' + mesi[d.getMonth()] + '</div>';
+  h += '<div class="pg-sub">' + (ATT.nome||"") + ' · ' + pianoLabel(ATT.piano) + '</div><div class="grid">';
+
+  h += '<div class="kcard"><div class="k-top">👥 In turno ora</div><div class="k-num">' + inTurno.length + '</div><div class="chips">';
+  inTurno.forEach(function(x){ h += '<span class="chip">' + x.dip + '</span>'; });
+  if (!inTurno.length) h += '<span class="k-det">Nessuno in questo orario</span>';
+  h += '</div><span class="k-link" onclick="nav(\'turni\')">Vai a Turni →</span></div>';
+
+  h += '<div class="kcard wide"><div class="k-top">🔔 Notifiche</div>';
+  DB.get("notifiche").slice(0, 5).forEach(function(n){
+    h += '<div class="ntf"><span>' + n.ico + '</span><span>' + n.txt + '</span><span class="ntf-time">' + n.t + '</span></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
+// ═══ ORDINI ═══
+var CICLO_ORDINE = ["nuovo","confermato","in_preparazione","pronto","ritirato"];
+var LBL_STATO = { nuovo:"NUOVO", confermato:"CONFERMATO", in_preparazione:"IN PREP.", pronto:"PRONTO", ritirato:"RITIRATO", confermata:"CONFERMATA", arrivata:"ARRIVATA", no_show:"NO SHOW" };
+function rOrdini(){
+  var h = '<div class="pg-title">📦 Ordini</div><div class="pg-sub">Tocca lo stato per avanzare · nuovo → confermato → in prep. → pronto → ritirato</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoOrdine()">+ Nuovo ordine</button><div class="filt">';
+  ["tutti","nuovo","in_preparazione","pronto","ritirato"].forEach(function(f){
+    h += '<span class="f-chip' + (filtroOrdini === f ? " on" : "") + '" onclick="filtroOrdini=\'' + f + '\';render()">' + (f === "tutti" ? "Tutti" : LBL_STATO[f]) + '</span>';
+  });
+  h += '</div></div>';
+  var ord = DB.get("ordini").filter(function(o){ return filtroOrdini === "tutti" || o.stato === filtroOrdini; });
+  if (!ord.length) return h + '<div class="empty"><div class="e-ico">📦</div>Nessun ordine qui.<br>Premi "+ Nuovo ordine" per iniziare.</div>';
+  ord.forEach(function(o){
+    h += '<div class="row"><div class="row-main"><div class="row-t">' + o.numero + ' · ' + o.cliente + '</div>';
+    h += '<div class="row-s">' + o.righe + ' · ritiro ' + dataIT(o.data) + ' ' + (o.ora||"") + '</div></div>';
+    h += '<span class="row-price">' + eur(o.totale) + '</span>';
+    if (o.tel) h += '<button class="st st-confermata" onclick="event.stopPropagation();waOrdine(\'' + o.id + '\')" title="WhatsApp">\ud83d\udcac</button>';
+    h += '<button class="st st-' + o.stato + '" onclick="avanzaOrdine(\'' + o.id + '\')">' + LBL_STATO[o.stato] + '</button></div>';
+  });
+  return h;
+}
+function avanzaOrdine(id){
+  var o = DB.get("ordini").find(function(x){ return x.id === id; });
+  if (!o) return;
+  var i = CICLO_ORDINE.indexOf(o.stato);
+  if (i < CICLO_ORDINE.length - 1) {
+    var nuovo = CICLO_ORDINE[i+1];
+    DB.update("ordini", id, { stato:nuovo });
+    DB.add("notifiche", { ico:"📦", txt:"Ordine " + o.numero + " → " + LBL_STATO[nuovo], t:"ora", letta:false });
+  }
+  render();
+}
+function mNuovoOrdine(){
+  var t = todayStr();
+  openModal('<div class="m-title">Nuovo ordine</div>' +
+    '<span class="ob-label">Cliente</span><input class="ob-input" id="no-cli" placeholder="Nome cliente">' +
+    '<span class="ob-label">Telefono</span><input class="ob-input" id="no-tel" placeholder="333 1234567">' +
+    '<span class="ob-label">Cosa ordina</span><input class="ob-input" id="no-righe" placeholder="Es. Torta 1kg + 12 bignè">' +
+    '<div class="m-2col"><div><span class="ob-label">Data ritiro</span><input class="ob-input" type="date" id="no-data" value="' + t + '"></div>' +
+    '<div><span class="ob-label">Ora</span><input class="ob-input" type="time" id="no-ora" value="17:00"></div></div>' +
+    '<span class="ob-label">Totale €</span><input class="ob-input" type="number" step="0.5" id="no-tot" placeholder="0.00">' +
+    '<button class="m-save" onclick="salvaOrdine()">✓ Crea ordine</button>');
+}
+function salvaOrdine(){
+  var cli = G("no-cli").value.trim();
+  if (!cli) { alert("Inserisci il nome del cliente."); return; }
+  var num = "ORD-" + String(Math.floor(Math.random()*9000) + 1000);
+  DB.add("ordini", { numero:num, cliente:cli, tel:G("no-tel").value.trim(), righe:G("no-righe").value.trim() || "—",
+    data:G("no-data").value, ora:G("no-ora").value, stato:"nuovo", totale:parseFloat(G("no-tot").value) || 0 });
+  autoCliente(cli, G("no-tel").value.trim());
+  DB.add("notifiche", { ico:"📦", txt:"Nuovo ordine " + num + " · " + cli, t:"ora", letta:false });
+  closeModal(); filtroOrdini = "tutti"; nav("ordini");
+}
+
+// ═══ TURNI (condivisi con app turni-ferie · stesso doc Firestore) ═══
+var turnoModal = null;
+function oreTurno(x){
+  if (!x || !x.inizio || !x.fine) return 0;
+  var a = x.inizio.split(":"), b = x.fine.split(":");
+  return ((parseInt(b[0])*60 + parseInt(b[1])) - (parseInt(a[0])*60 + parseInt(a[1]))) / 60;
+}
+function rTurni(){
+  var h = '<div class="pg-title">\ud83d\udcc5 Turni</div><div class="pg-sub">Sincronizzati con l\'app Turni & Ferie \u00b7 tocca una cella per modificare</div>';
+  var dips = TDB.dipendenti();
+  var giorniL = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
+  for (var g = 0; g < 7; g++) {
+    var d = new Date(); d.setDate(d.getDate() + g);
+    var iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    h += '<div class="g-day">' + (g === 0 ? "Oggi" : giorniL[d.getDay()] + " " + d.getDate()) + '</div>';
+    var qualcuno = false;
+    dips.forEach(function(dip){
+      var x = TDB.get(dip.nome, iso);
+      var label = "";
+      if (x) {
+        qualcuno = true;
+        if (x.tipo === "F") label = "\ud83c\udfd6\ufe0f Feria";
+        else if (x.tipo === "M") label = "\ud83e\udd12 Malattia";
+        else if (x.tipo === "PE") label = "\ud83d\udccb Permesso" + (x.ore ? " " + x.ore + "h" : "");
+        else if (x.inizio) label = x.inizio + "\u2013" + x.fine;
+      }
+      if (label) {
+        h += '<span class="t-pill" onclick="apriTurno(\'' + dip.nome.replace(/'/g,"\\'") + '\',\'' + iso + '\')"><b>' + dip.nome + '</b><span class="t-h">' + label + '</span></span>';
+      }
+    });
+    if (!qualcuno) h += '<span class="row-s" style="cursor:pointer" onclick="apriTurnoGiorno(\'' + iso + '\')">Nessun turno \u00b7 tocca per aggiungere</span>';
+    else h += '<span class="t-pill" style="cursor:pointer;border-style:dashed;color:var(--ink-soft)" onclick="apriTurnoGiorno(\'' + iso + '\')">+ turno</span>';
+  }
+  h += '<div style="margin-top:20px"><span onclick="window.open(\'https://turni-ferie.vercel.app/?k=\'+btoa(HUB_PWD),\'_blank\')" style="font-family:var(--font-m);font-size:12px;color:var(--brand-deep);text-decoration:underline;cursor:pointer">\u2197 Apri l\'app Turni & Ferie completa (griglia mese, ferie, PDF) \u2014 senza rifare il login</span></div>';
+  return h;
+}
+function apriTurnoGiorno(iso){
+  var dips = TDB.dipendenti();
+  var opts = dips.map(function(d){ return '<option>' + d.nome + '</option>'; }).join("");
+  openModal('<div class="m-title">Nuovo turno \u00b7 ' + dataIT(iso) + '</div>' +
+    '<span class="ob-label">Dipendente</span><select class="ob-select" id="ft-dip">' + opts + '</select>' +
+    '<div id="ft-quick"></div>' +
+    '<button class="m-save" onclick="apriTurno(G(\'ft-dip\').value, \'' + iso + '\')">Avanti \u2192</button>');
+}
+function apriTurno(nome, iso){
+  turnoModal = { nome:nome, data:iso };
+  var tc = TDB.turniConf();
+  var x = TDB.get(nome, iso);
+  var qb = "";
+  if (tc[0] && tc[0].inizio) qb += '<button class="q-btn-f" style="background:var(--success-tint);color:var(--success)" onclick="setTurno({inizio:\'' + tc[0].inizio + '\',fine:\'' + tc[0].fine + '\'})">' + (tc[0].emoji||"\ud83d\udfe2") + ' ' + (tc[0].nome||"Mattina") + '<br><small>' + tc[0].inizio + '\u2013' + tc[0].fine + '</small></button>';
+  if (tc[1] && tc[1].inizio) qb += '<button class="q-btn-f" style="background:var(--danger-tint);color:var(--danger)" onclick="setTurno({inizio:\'' + tc[1].inizio + '\',fine:\'' + tc[1].fine + '\'})">' + (tc[1].emoji||"\ud83d\udd34") + ' ' + (tc[1].nome||"Pomeriggio") + '<br><small>' + tc[1].inizio + '\u2013' + tc[1].fine + '</small></button>';
+  if (tc[2] && tc[2].attivo && tc[2].inizio) qb += '<button class="q-btn-f" style="background:var(--brand-tint);color:var(--brand-deep)" onclick="setTurno({inizio:\'' + tc[2].inizio + '\',fine:\'' + tc[2].fine + '\'})">' + (tc[2].emoji||"\ud83d\udd35") + ' ' + (tc[2].nome||"Turno 3") + '<br><small>' + tc[2].inizio + '\u2013' + tc[2].fine + '</small></button>';
+  qb += '<button class="q-btn-f" style="background:#FCE7F3;color:#9D174D" onclick="setTurno({tipo:\'F\'})">\ud83c\udfd6\ufe0f Feria</button>';
+  qb += '<button class="q-btn-f" style="background:var(--warning-tint);color:var(--warning)" onclick="setTurno({tipo:\'M\'})">\ud83e\udd12 Malattia</button>';
+  qb += '<button class="q-btn-f" style="background:var(--paper);color:var(--ink-soft)" onclick="setTurno(null)">\u2715 Rimuovi</button>';
+  openModal('<div class="m-title">' + nome + ' \u00b7 ' + dataIT(iso) + '</div>' +
+    '<style>.q-btn-f{padding:14px 8px;border-radius:10px;border:none;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--font-d);text-align:center}</style>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">' + qb + '</div>' +
+    '<span class="ob-label">\u23f0 Orario personalizzato</span>' +
+    '<div class="m-2col"><input class="ob-input" type="time" id="ft-i" value="' + (x && x.inizio ? x.inizio : "") + '"><input class="ob-input" type="time" id="ft-f" value="' + (x && x.fine ? x.fine : "") + '"></div>' +
+    '<button class="m-save" onclick="setTurnoCustom()">\u2713 Salva orario</button>');
+}
+function setTurno(val){
+  if (!turnoModal) return;
+  TDB.set(turnoModal.nome, turnoModal.data, val);
+  turnoModal = null;
+  closeModal(); nav("turni");
+}
+function setTurnoCustom(){
+  if (!turnoModal) return;
+  var i = G("ft-i").value, f = G("ft-f").value;
+  if (!i || !f) { alert("Inserisci inizio e fine."); return; }
+  setTurno({ inizio:i, fine:f });
+}
+
+// ═══ CLIENTI (CRM) ═══
+function autoCliente(nome, tel){
+  if (!nome) return;
+  var esiste = DB.get("clienti").some(function(c){ return c.nome.toLowerCase() === nome.toLowerCase() || (tel && c.tel === tel); });
+  if (!esiste) DB.add("clienti", { nome:nome, tel:tel || "", tags:[] });
+}
+function rClienti(){
+  var h = '<div class="pg-title">👥 Clienti</div><div class="pg-sub">CRM unificato · si popola da solo con ordini e prenotazioni</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoCliente()">+ Nuovo cliente</button></div>';
+  var cl = DB.get("clienti");
+  if (!cl.length) return h + '<div class="empty"><div class="e-ico">👥</div>Nessun cliente ancora.</div>';
+  h += '<div class="tblwrap"><table class="tbl"><tr><th>Nome</th><th>Telefono</th><th>Tag</th></tr>';
+  cl.forEach(function(c){
+    h += '<tr><td><b>' + c.nome + '</b></td><td style="font-family:var(--font-m);font-size:12px">' + (c.tel||"—") + '</td><td>';
+    (c.tags||[]).forEach(function(t){ h += '<span class="tag-pill">' + t + '</span>'; });
+    h += '</td></tr>';
+  });
+  h += '</table></div>';
+  return h;
+}
+function mNuovoCliente(){
+  openModal('<div class="m-title">Nuovo cliente</div>' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="nc-nome" placeholder="Nome e cognome">' +
+    '<span class="ob-label">Telefono</span><input class="ob-input" id="nc-tel" placeholder="333 1234567">' +
+    '<span class="ob-label">Tag (separati da virgola)</span><input class="ob-input" id="nc-tags" placeholder="fedelissimo, celiaco">' +
+    '<button class="m-save" onclick="salvaCliente()">✓ Aggiungi</button>');
+}
+function salvaCliente(){
+  var nome = G("nc-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome."); return; }
+  var tags = G("nc-tags").value.split(",").map(function(t){ return t.trim(); }).filter(Boolean);
+  DB.add("clienti", { nome:nome, tel:G("nc-tel").value.trim(), tags:tags });
+  closeModal(); nav("clienti");
+}
+
+// ═══ SHOP ═══
+function rShop(){
+  var h = '<div class="pg-title">🛍️ Shop</div><div class="pg-sub">I tuoi articoli in vetrina · tocca un articolo per modificarlo, il badge per la disponibilita\'</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoArticolo()">+ Nuovo articolo</button></div>';
+  var arts = DB.get("shop_articoli");
+  if (!arts.length) return h + '<div class="empty"><div class="e-ico">🛍️</div>Nessun articolo. Aggiungi il primo!</div>';
+  arts.forEach(function(a){
+    var det = [];
+    if (a.taglie && a.taglie.length) det.push("Formati: " + a.taglie.join("/"));
+    if (a.colori && a.colori.length) det.push("Varianti: " + a.colori.join(", "));
+    if (a.off) det.push("Offerta " + a.off);
+    h += '<div class="row" onclick="mArticolo(\'' + a.id + '\')"><div class="row-main"><div class="row-t">' + a.nome + ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">✎</span></div>';
+    h += '<div class="row-s">' + (det.join(" · ") || "Articolo semplice · tocca per modificare") + '</div></div>';
+    h += '<span class="row-price">' + eur(a.prezzo) + '</span>';
+    h += '<button class="st ' + (a.disp ? "st-pronto" : "st-nuovo") + '" onclick="event.stopPropagation();toggleDisp(\'' + a.id + '\')">' + (a.disp ? "DISPONIBILE" : "ESAURITO") + '</button></div>';
+  });
+  return h;
+}
+function toggleDisp(id){
+  var a = DB.get("shop_articoli").find(function(x){ return x.id === id; });
+  if (a) DB.update("shop_articoli", id, { disp: !a.disp });
+  render();
+}
+function delArticolo(id){ if (confirm("Elimino questo articolo?")) { DB.remove("shop_articoli", id); closeModal(); render(); } }
+function mArticolo(id){
+  var a = id ? DB.get("shop_articoli").find(function(x){ return x.id === id; }) : null;
+  openModal('<div class="m-title">' + (a ? "Modifica articolo" : "Nuovo articolo") + '</div>' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="na-nome" value="' + (a ? a.nome.replace(/"/g,'&quot;') : "") + '" placeholder="Es. Panettone artigianale">' +
+    '<span class="ob-label">Prezzo \u20ac</span><input class="ob-input" type="number" step="0.5" id="na-prezzo" value="' + (a ? a.prezzo : "") + '" placeholder="0.00">' +
+    '<span class="ob-label">Formati (virgola, vuoto se non serve)</span><input class="ob-input" id="na-taglie" value="' + (a ? a.taglie.join(", ") : "") + '" placeholder="750g, 1kg">' +
+    '<span class="ob-label">Varianti (virgola, vuoto se non serve)</span><input class="ob-input" id="na-colori" value="' + (a ? a.colori.join(", ") : "") + '" placeholder="Classico, Cioccolato">' +
+    '<span class="ob-label">Offerta (es. 3x2, vuoto se nessuna)</span><input class="ob-input" id="na-off" value="' + (a ? a.off : "") + '" placeholder="3x2">' +
+    '<input type="hidden" id="na-id" value="' + (a ? a.id : "") + '">' +
+    '<button class="m-save" onclick="salvaArticolo()">\u2713 ' + (a ? "Salva modifiche" : "Aggiungi articolo") + '</button>' +
+    (a ? '<div style="text-align:center;margin-top:14px"><a href="#" onclick="delArticolo(\'' + a.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina questo articolo</a></div>' : ""));
+}
+function mNuovoArticolo(){ mArticolo(null); }
+function splitCSV(v){ return v.split(",").map(function(x){ return x.trim(); }).filter(Boolean); }
+function salvaArticolo(){
+  var nome = G("na-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome."); return; }
+  var aid = G("na-id").value;
+  var dati = { nome:nome, prezzo:parseFloat(G("na-prezzo").value) || 0,
+    taglie:splitCSV(G("na-taglie").value), colori:splitCSV(G("na-colori").value),
+    off:G("na-off").value.trim() };
+  if (aid) DB.update("shop_articoli", aid, dati);
+  else { dati.disp = true; DB.add("shop_articoli", dati); }
+  closeModal(); nav("shop");
+}
+
+// ═══ ALLERGENI ═══
+var ALLERGENI_UE = ["Glutine","Crostacei","Uova","Pesce","Arachidi","Soia","Latte","Frutta a guscio","Sedano","Senape","Sesamo","Solfiti","Lupini","Molluschi"];
+function rAllergeni(){
+  var h = '<div class="pg-title">\u26a0\ufe0f Allergeni</div><div class="pg-sub">Ricette e allergeni \u00b7 tocca una ricetta per generare l\'etichetta a norma UE 1169/2011</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovaRicetta()">+ Nuova ricetta</button></div>';
+  var ric = DB.get("ricette");
+  if (!ric.length) return h + '<div class="empty"><div class="e-ico">\u26a0\ufe0f</div>Nessuna ricetta ancora.</div>';
+  ric.forEach(function(r){
+    h += '<div class="row" onclick="mEtichetta(\'' + r.id + '\')"><div class="row-main"><div class="row-t">' + r.nome + '</div>';
+    h += '<div class="row-s">' + (r.allergeni.length ? r.allergeni.join(" \u00b7 ") : "Nessun allergene") + '</div></div>';
+    h += '<span class="st st-confermato">\ud83c\udff7\ufe0f ETICHETTA</span></div>';
+  });
+  return h;
+}
+function mRicetta(id){
+  var r = id ? DB.get("ricette").find(function(x){ return x.id === id; }) : null;
+  var checks = ALLERGENI_UE.map(function(a, i){
+    var ck = (r && r.allergeni.indexOf(a) >= 0) ? ' checked' : '';
+    return '<label style="display:inline-flex;align-items:center;gap:5px;margin:0 10px 8px 0;font-size:13px"><input type="checkbox" class="alg-ck" value="' + a + '"' + ck + '> ' + a + '</label>';
+  }).join("");
+  openModal('<div class="m-title">' + (r ? "Modifica ricetta" : "Nuova ricetta") + '</div>' +
+    '<span class="ob-label">Nome prodotto</span><input class="ob-input" id="nr-nome" value="' + (r ? r.nome.replace(/"/g,'&quot;') : "") + '" placeholder="Es. Torta Millefoglie">' +
+    '<span class="ob-label">Ingredienti (allergeni in MAIUSCOLO)</span><textarea class="ob-input" id="nr-ingr" rows="3" placeholder="farina di FRUMENTO, LATTE, UOVA, zucchero...">' + (r ? r.ingredienti : "") + '</textarea>' +
+    '<div style="margin-top:6px"><span onclick="buildPercPanel()" style="font-family:var(--font-m);font-size:11px;color:var(--brand-deep);text-decoration:underline;cursor:pointer">\u0025 Imposta percentuali ingredienti (QUID etichetta)</span></div>' +
+    '<div id="perc-panel" style="display:none;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;background:var(--paper)"></div>' +
+    '<span class="ob-label">Allergeni presenti (14 UE)</span><div style="margin-top:6px">' + checks + '</div>' +
+    '<input type="hidden" id="nr-id" value="' + (r ? r.id : "") + '">' +
+    '<button class="m-save" onclick="salvaRicetta()">\u2713 ' + (r ? "Salva modifiche" : "Salva ricetta") + '</button>');
+}
+function mNuovaRicetta(){ mRicetta(null); }
+function buildPercPanel(){
+  var items = G("nr-ingr").value.split(",").map(function(s){ return s.trim(); }).filter(Boolean);
+  if (!items.length) { alert("Scrivi prima gli ingredienti, separati da virgola."); return; }
+  var html = '<div style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Percentuale in etichetta (lascia vuoto dove non serve)</div>';
+  items.forEach(function(ing){
+    var m = ing.match(/^(.*?)\s*(\d+(?:[.,]\d+)?)\s*%$/);
+    var nome = m ? m[1] : ing;
+    var perc = m ? m[2].replace(",", ".") : "";
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0">' +
+      '<span style="flex:1;font-size:13px">' + nome + '</span>' +
+      '<input type="number" class="perc-inp" data-nome="' + nome.replace(/"/g, '&quot;') + '" value="' + perc + '" min="0" max="100" step="0.5" placeholder="\u2014" style="width:72px;border:1.5px solid var(--line);border-radius:8px;padding:7px;font-family:var(--font-m);font-size:13px;text-align:center;outline:none;background:var(--card)">' +
+      '<span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">%</span></div>';
+  });
+  html += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="applicaPerc()">\u2713 Applica percentuali agli ingredienti</button>';
+  G("perc-panel").innerHTML = html;
+  G("perc-panel").style.display = "block";
+}
+function applicaPerc(){
+  var out = [];
+  document.querySelectorAll(".perc-inp").forEach(function(r){
+    var n = r.getAttribute("data-nome");
+    var v = parseFloat(r.value);
+    out.push(v > 0 ? n + " " + v + "%" : n);
+  });
+  if (out.length) G("nr-ingr").value = out.join(", ");
+  G("perc-panel").style.display = "none";
+}
+function salvaRicetta(){
+  var nome = G("nr-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome."); return; }
+  var sel = [];
+  document.querySelectorAll(".alg-ck").forEach(function(c){ if (c.checked) sel.push(c.value); });
+  var rid = G("nr-id").value;
+  var dati = { nome:nome, ingredienti:G("nr-ingr").value.trim(), allergeni:sel };
+  if (rid) DB.update("ricette", rid, dati);
+  else DB.add("ricette", dati);
+  closeModal(); nav("allergeni");
+}
+function mEtichetta(id){
+  var r = DB.get("ricette").find(function(x){ return x.id === id; });
+  if (!r) return;
+  var ingHtml = r.ingredienti.replace(/([A-Z\u00c0-\u00dc]{3,}(?:\s+[A-Z\u00c0-\u00dc]{2,})*)/g, "<b>$1</b>");
+  var algList = r.allergeni.length ? r.allergeni.join(", ") : "nessuno dichiarato";
+  var testoCopia = r.nome + "\\nIngredienti: " + r.ingredienti + "\\nAllergeni: " + algList + "\\nProdotto da " + (ATT.nome || "") + (ATT.citta ? " - " + ATT.citta : "");
+  openModal('<div class="m-title">\ud83c\udff7\ufe0f Etichetta \u00b7 ' + r.nome + '</div>' +
+    '<div style="border:2px solid var(--ink);border-radius:12px;padding:16px;font-size:13px;line-height:1.7">' +
+    '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + r.nome + '</div>' +
+    '<div><span style="font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft)">Ingredienti</span><br>' + ingHtml + '</div>' +
+    '<div style="margin-top:8px"><span style="font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft)">Allergeni (Reg. UE 1169/2011)</span><br><b>' + algList + '</b></div>' +
+    '<div style="margin-top:8px;font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">Prodotto da ' + (ATT.nome||"") + (ATT.citta ? " \u00b7 " + ATT.citta : "") + '</div>' +
+    '</div>' +
+    '<button class="m-save" onclick="copiaEtichetta(this, \'' + encodeURIComponent(testoCopia) + '\')">\ud83d\udccb Copia testo etichetta</button>' +
+    '<div style="text-align:center;margin-top:14px"><span onclick="mRicetta(\'' + r.id + '\')" style="font-family:var(--font-m);font-size:12px;color:var(--brand-deep);text-decoration:underline;cursor:pointer;margin-right:18px">\u270e Modifica ricetta</span>' +
+    '<span onclick="delRicetta(\'' + r.id + '\')" style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);text-decoration:underline;cursor:pointer">Elimina</span></div>');
+}
+function copiaEtichetta(btn, enc){
+  var txt = decodeURIComponent(enc).replace(/\\n/g, "\n");
+  if (navigator.clipboard) { navigator.clipboard.writeText(txt); btn.textContent = "\u2713 Copiato!"; }
+  else { alert(txt); }
+}
+function delRicetta(id){ if (confirm("Elimino questa ricetta?")) { DB.remove("ricette", id); closeModal(); render(); } }
+
+// ═══ FORNITORI v2 (liste per fornitore \u2192 WhatsApp al numero collegato) ═══
+var pendingProd = null;
+function fornTel(nome){
+  var f = DB.get("fornitori_anag").find(function(x){ return x.nome === nome; });
+  return f && f.tel ? f.tel : "";
+}
+function rFornitori(){
+  var h = '<div class="pg-title">\ud83e\uddfe Fornitori</div>';
+  h += '<div class="pg-sub">1\ufe0f\u20e3 Tocca + AGGIUNGI sui prodotti finiti \u00b7 2\ufe0f\u20e3 invia ogni lista su WhatsApp al suo fornitore</div>';
+
+  // ── Liste spesa raggruppate per fornitore ──
+  var lista = DB.get("lista_spesa");
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">\ud83d\uded2 Liste spesa da inviare</div>';
+  if (!lista.length) {
+    h += '<div class="k-det" style="line-height:1.7">Nessun prodotto in lista.<br>\ud83d\udc47 Scorri alla <b>Dispensa</b> e tocca <b>+ AGGIUNGI</b> su quello che \u00e8 finito: qui si creer\u00e0 una lista per ogni fornitore, pronta da inviare su WhatsApp.</div>';
+  } else {
+    var gruppi = {};
+    lista.forEach(function(x){ var k = x.fornitore || "Senza fornitore"; (gruppi[k] = gruppi[k] || []).push(x); });
+    Object.keys(gruppi).forEach(function(forn){
+      var tel = fornTel(forn);
+      h += '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0">';
+      h += '<div style="font-weight:800;font-size:14px;margin-bottom:6px">\ud83d\udcc7 ' + forn + (tel ? ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">' + tel + '</span>' : ' <span style="font-family:var(--font-m);font-size:10px;color:var(--warning)">\u26a0 nessun numero \u2014 sceglierai il contatto</span>') + '</div>';
+      gruppi[forn].forEach(function(x){
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--paper);font-size:13px">';
+        h += '<span style="flex:1"><b>' + x.qta + '</b> \u00d7 ' + (x.unita||"pz") + ' \u2014 ' + x.nome + '</span>';
+        h += '<button class="st st-nuovo" onclick="rmLista(\'' + x.id + '\')">\u2715</button></div>';
+      });
+      h += '<button class="btn-add" style="width:100%;margin-top:10px;background:#25D366" onclick="waListaFornitore(\'' + forn.replace(/'/g, "\\'") + '\')">\ud83d\udcac Invia ordine a ' + forn + '</button>';
+      h += '</div>';
+    });
+    h += '<button style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink-soft);font-weight:700;cursor:pointer;font-size:13px" onclick="svuotaLista()">Svuota tutte le liste</button>';
+  }
+  h += '</div>';
+
+  // ── Anagrafica fornitori ──
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">\ud83d\udcc7 I tuoi fornitori</div>';
+  DB.get("fornitori_anag").forEach(function(f){
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--paper)">';
+    h += '<span style="flex:1;font-weight:700;font-size:14px">' + f.nome + '</span>';
+    h += '<span style="font-family:var(--font-m);font-size:11px;color:' + (f.tel ? 'var(--ink-soft)' : 'var(--warning)') + '">' + (f.tel || "aggiungi numero") + '</span>';
+    h += '<button class="st st-confermato" onclick="mFornitore(\'' + f.id + '\')">\u270e</button></div>';
+  });
+  h += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="mFornitore(null)">+ Nuovo fornitore</button></div>';
+
+  // ── Dispensa ──
+  h += '<div class="kcard"><div class="k-top">\ud83d\udce6 Dispensa \u00b7 tocca quando finisce</div>';
+  var disp = DB.get("dispensa");
+  if (!disp.length) h += '<div class="k-det">Dispensa vuota.</div>';
+  disp.forEach(function(d){
+    h += '<div class="row" style="margin:8px 0" onclick="mProdDisp(\'' + d.id + '\')"><div class="row-main"><div class="row-t">' + d.nome + ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">\u270e</span></div>';
+    h += '<div class="row-s">' + (d.fornitore||"senza fornitore") + ' \u00b7 ' + (d.unita||"pz") + ' \u00b7 tocca per modificare</div></div>';
+    h += '<button class="st st-pronto" onclick="event.stopPropagation();addToLista(\'' + d.id + '\')">+ AGGIUNGI</button></div>';
+  });
+  h += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="mNuovoProdDisp()">+ Nuovo prodotto in dispensa</button></div>';
+  return h;
+}
+function mFornitore(id){
+  var f = id ? DB.get("fornitori_anag").find(function(x){ return x.id === id; }) : null;
+  openModal('<div class="m-title">' + (f ? "Modifica fornitore" : "Nuovo fornitore") + '</div>' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="fo-nome" value="' + (f ? f.nome : "") + '" placeholder="Es. Doreca">' +
+    '<span class="ob-label">Numero WhatsApp (con o senza +39)</span><input class="ob-input" id="fo-tel" value="' + (f ? f.tel : "") + '" placeholder="333 1234567">' +
+    '<input type="hidden" id="fo-id" value="' + (f ? f.id : "") + '">' +
+    '<button class="m-save" onclick="salvaFornitore()">\u2713 Salva fornitore</button>' +
+    (f ? '<div style="text-align:center;margin-top:14px"><a href="#" onclick="delFornitore(\'' + f.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina fornitore (i prodotti restano, senza fornitore)</a></div>' : ""));
+}
+function salvaFornitore(){
+  var nome = G("fo-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome del fornitore."); return; }
+  var tel = G("fo-tel").value.trim(), fid = G("fo-id").value;
+  if (fid) {
+    var vecchio = DB.get("fornitori_anag").find(function(x){ return x.id === fid; });
+    var vecchioNome = vecchio ? vecchio.nome : "";
+    DB.update("fornitori_anag", fid, { nome:nome, tel:tel });
+    // aggiorna il nome sui prodotti collegati
+    if (vecchioNome && vecchioNome !== nome) {
+      DB.get("dispensa").forEach(function(d){ if (d.fornitore === vecchioNome) DB.update("dispensa", d.id, { fornitore:nome }); });
+      DB.get("lista_spesa").forEach(function(x){ if (x.fornitore === vecchioNome) DB.update("lista_spesa", x.id, { fornitore:nome }); });
+    }
+  } else {
+    DB.add("fornitori_anag", { nome:nome, tel:tel });
+  }
+  closeModal(); nav("fornitori");
+}
+function delFornitore(id){
+  var f = DB.get("fornitori_anag").find(function(x){ return x.id === id; });
+  if (!f || !confirm("Elimino il fornitore " + f.nome + "? I suoi prodotti restano in dispensa, senza fornitore.")) return;
+  DB.get("dispensa").forEach(function(d){ if (d.fornitore === f.nome) DB.update("dispensa", d.id, { fornitore:"" }); });
+  DB.get("lista_spesa").forEach(function(x){ if (x.fornitore === f.nome) DB.update("lista_spesa", x.id, { fornitore:"" }); });
+  DB.remove("fornitori_anag", id);
+  closeModal(); nav("fornitori");
+}
+function addToLista(id){
+  pendingProd = DB.get("dispensa").find(function(x){ return x.id === id; });
+  if (!pendingProd) return;
+  var qbtns = [1,2,3,4,5,6,8,10].map(function(n){
+    return '<button class="st st-confermata" style="padding:12px 0;font-size:13px" onclick="salvaQtaLista(' + n + ')">' + n + '</button>';
+  }).join("");
+  openModal('<div class="m-title">' + pendingProd.nome + '</div>' +
+    '<div class="pg-sub" style="margin-bottom:8px">Fornitore: ' + (pendingProd.fornitore||"\u2014") + '</div>' +
+    '<span class="ob-label">Quanti ' + (pendingProd.unita||"pz") + '?</span>' +
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0">' + qbtns + '</div>' +
+    '<span class="ob-label">Altro</span><input class="ob-input" type="number" min="0.5" step="0.5" id="fq-custom" placeholder="es. 12">' +
+    '<button class="m-save" onclick="salvaQtaLista(parseFloat(G(\'fq-custom\').value)||0)">\u2713 Aggiungi alla lista</button>');
+}
+function salvaQtaLista(qta){
+  if (!pendingProd || !qta || qta <= 0) { alert("Scegli una quantit\u00e0."); return; }
+  var lista = DB.get("lista_spesa");
+  var gia = lista.find(function(x){ return x.nome === pendingProd.nome; });
+  if (gia) DB.update("lista_spesa", gia.id, { qta: gia.qta + qta });
+  else DB.add("lista_spesa", { nome:pendingProd.nome, fornitore:pendingProd.fornitore, unita:pendingProd.unita, qta:qta });
+  pendingProd = null;
+  closeModal(); nav("fornitori");
+}
+function rmLista(id){ DB.remove("lista_spesa", id); render(); }
+function svuotaLista(){
+  if (!confirm("Svuoto tutte le liste spesa?")) return;
+  DB.load().lista_spesa = []; DB.save(); render();
+}
+function rmDispensa(id){ if (confirm("Tolgo questo prodotto dalla dispensa?")) { DB.remove("dispensa", id); closeModal(); render(); } }
+function mProdDisp(id){
+  var d = id ? DB.get("dispensa").find(function(x){ return x.id === id; }) : null;
+  var opts = '<option value="">\u2014 nessuno \u2014</option>' + DB.get("fornitori_anag").map(function(f){
+    var sel = (d && d.fornitore === f.nome) ? ' selected' : '';
+    return '<option' + sel + '>' + f.nome + '</option>';
+  }).join("");
+  openModal('<div class="m-title">' + (d ? "Modifica prodotto" : "Nuovo prodotto dispensa") + '</div>' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="nd-nome" value="' + (d ? d.nome.replace(/"/g,'&quot;') : "") + '" placeholder="Es. Caff\u00e8 decaffeinato 250g">' +
+    '<span class="ob-label">Fornitore</span><select class="ob-select" id="nd-forn">' + opts + '</select>' +
+    '<span class="ob-label">Unit\u00e0 (cartone, sacco, kg...)</span><input class="ob-input" id="nd-unita" value="' + (d ? (d.unita||"") : "") + '" placeholder="cartone">' +
+    '<input type="hidden" id="nd-id" value="' + (d ? d.id : "") + '">' +
+    '<button class="m-save" onclick="salvaProdDisp()">\u2713 ' + (d ? "Salva modifiche" : "Aggiungi") + '</button>' +
+    (d ? '<div style="text-align:center;margin-top:14px"><a href="#" onclick="rmDispensa(\'' + d.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina dalla dispensa</a></div>' : ""));
+}
+function mNuovoProdDisp(){ mProdDisp(null); }
+function salvaProdDisp(){
+  var nome = G("nd-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome."); return; }
+  var did = G("nd-id").value;
+  var dati = { nome:nome, fornitore:G("nd-forn").value, unita:G("nd-unita").value.trim() || "pz" };
+  if (did) {
+    var vecchio = DB.get("dispensa").find(function(x){ return x.id === did; });
+    DB.update("dispensa", did, dati);
+    // allinea le voci gia' in lista spesa (stesso prodotto)
+    if (vecchio) DB.get("lista_spesa").forEach(function(x){
+      if (x.nome === vecchio.nome) DB.update("lista_spesa", x.id, { nome:dati.nome, fornitore:dati.fornitore, unita:dati.unita });
+    });
+  } else DB.add("dispensa", dati);
+  closeModal(); nav("fornitori");
+}
+function waListaFornitore(forn){
+  var items = DB.get("lista_spesa").filter(function(x){ return (x.fornitore || "Senza fornitore") === forn; });
+  if (!items.length) { alert("Lista vuota per questo fornitore."); return; }
+  var oggi = new Date();
+  var msg = "Buongiorno! Ordine da " + (ATT.nome||"") + " \u2014 " + oggi.getDate() + "/" + (oggi.getMonth()+1) + "\n";
+  items.forEach(function(x){ msg += "\u2022 " + x.qta + " " + (x.unita||"pz") + " \u2014 " + x.nome + "\n"; });
+  msg += "Grazie!";
+  var tel = fornTel(forn);
+  var url = tel ? waLink(tel, msg) : "https://wa.me/?text=" + encodeURIComponent(msg);
+  window.open(url, "_blank");
+}
+
+// ═══ WHATSAPP ═══
+function waNorm(tel){
+  var t = (tel || "").replace(/[^0-9]/g, "");
+  if (t.length === 10 && t.charAt(0) === "3") t = "39" + t;
+  return t;
+}
+function waLink(tel, msg){ return "https://wa.me/" + waNorm(tel) + "?text=" + encodeURIComponent(msg); }
+function waOrdine(id){
+  var o = DB.get("ordini").find(function(x){ return x.id === id; });
+  if (!o || !o.tel) { alert("Nessun numero di telefono su questo ordine."); return; }
+  var msg = "Ciao " + o.cliente + "! Il tuo ordine " + o.numero + " (" + o.righe + ") " +
+    (o.stato === "pronto" ? "e' PRONTO per il ritiro" : "e' previsto per il " + dataIT(o.data) + " alle " + (o.ora||"")) +
+    ". A presto! \u2014 " + (ATT.nome || "");
+  window.open(waLink(o.tel, msg), "_blank");
+}
+function waPren(id){
+  var p = DB.get("prenotazioni").find(function(x){ return x.id === id; });
+  if (!p || !p.tel) { alert("Nessun numero su questa prenotazione."); return; }
+  var msg = "Ciao " + p.cliente + "! Confermiamo la tua prenotazione per " + p.ospiti + " il " + dataIT(p.data) + " alle " + p.ora + ". A presto! \u2014 " + (ATT.nome || "");
+  window.open(waLink(p.tel, msg), "_blank");
+}
+function rWhatsApp(){
+  var h = '<div class="pg-title">\ud83d\udcac WhatsApp</div><div class="pg-sub">Messaggi rapidi ai clienti \u00b7 si apre WhatsApp con il testo gia\' pronto</div>';
+  var t = todayStr();
+  var pronti = DB.get("ordini").filter(function(o){ return o.stato === "pronto" && o.tel; });
+  var oggi = DB.get("ordini").filter(function(o){ return o.data === t && o.stato !== "ritirato" && o.tel; });
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">\ud83d\udce6 Ordini pronti da avvisare</div>';
+  if (!pronti.length) h += '<div class="k-det">Nessun ordine pronto con telefono.</div>';
+  pronti.forEach(function(o){
+    h += '<div class="row" style="margin:8px 0"><div class="row-main"><div class="row-t">' + o.cliente + '</div><div class="row-s">' + o.numero + ' \u00b7 ' + o.righe + '</div></div>';
+    h += '<button class="st st-pronto" onclick="waOrdine(\'' + o.id + '\')">\ud83d\udcac AVVISA</button></div>';
+  });
+  h += '</div>';
+  h += '<div class="kcard"><div class="k-top">\ud83e\udd16 Bot automatico (piano Business)</div>';
+  h += '<div class="k-det" style="line-height:1.7">Il bot risponde da solo ai clienti che ti scrivono su WhatsApp: orari, ordini, prenotazioni. Con la WhatsApp Cloud API di Meta <b>ricevere messaggi e rispondere entro 24 ore e\' gratuito</b> \u2014 si paga solo per i template promozionali in uscita. Setup: numero dedicato + Cloud API + funzione serverless su Vercel (arriva con lo Sprint Bot).</div></div>';
+  return h;
+}
+
+// ═══ PLACEHOLDER + IMPOSTAZIONI ═══
+var MODULI = {
+  social: { ico:"\u2728", nome:"KunMor Social AI", desc:"Il motore di marketing dell'ecosistema: genera Reel, caroselli, caption e hashtag per la tua attivita', salva il calendario editoriale, esporta verso Metricool e traccia i lead nel CRM. In futuro si collega a LocalCrew per trovare creator della tua zona.", sprint:"Sprint 6 \u00b7 Ecosistema KunMor" }
+};
+function rPlaceholder(v){
+  var m = MODULI[v] || { ico:"🧩", nome:v, desc:"In arrivo.", sprint:"presto" };
+  return '<div class="mod-hero"><div class="ico">' + m.ico + '</div><h2>' + m.nome + '</h2><p>' + m.desc + '</p><span class="tag">In arrivo · ' + m.sprint + '</span></div>';
+}
+function pianoLabel(p){
+  return { hub_starter:"Hub Starter 9,90€/mese", hub_pro:"Hub Pro 14,90€/mese", hub_business:"Hub Business 34,90€/mese" }[p] || p;
+}
+function rImpostazioni(){
+  var h = '<div class="pg-title">⚙️ Impostazioni</div><div class="pg-sub">Attività · piano · account</div>';
+  h += '<div class="set-box"><div class="set-title">🏪 Attività</div>';
+  h += '<span class="ob-label">Nome</span><input class="ob-input" id="set-nome" value="' + (ATT.nome||"") + '">';
+  h += '<span class="ob-label">Città</span><input class="ob-input" id="set-citta" value="' + (ATT.citta||"") + '">';
+  h += '<button class="set-save" onclick="salvaSet()">✓ Salva</button></div>';
+  h += '<div class="set-box"><div class="set-title">\ud83d\udcd1 Ordine moduli</div>';
+  h += '<p style="font-size:12px;color:var(--ink-soft);font-family:var(--font-m);margin-bottom:10px">Sposta le voci nell\'ordine che preferisci (Oggi resta prima, Impostazioni ultima)</p>';
+  var mobili = vociOrdinate().filter(function(x){ return x.v !== "oggi" && x.v !== "impostazioni"; });
+  mobili.forEach(function(x, i){
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--paper)">';
+    h += '<span style="flex:1;font-weight:700;font-size:14px">' + x.ico + ' ' + x.n + '</span>';
+    h += '<button class="st st-ritirato" style="opacity:' + (i === 0 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',-1)">\u25b2</button>';
+    h += '<button class="st st-ritirato" style="opacity:' + (i === mobili.length-1 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',1)">\u25bc</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<div class="set-box"><div class="set-title">👤 Account</div>';
+  h += '<p style="font-size:13px;color:var(--ink-soft)">' + (USER && USER.email ? USER.email : "Modalità demo — nessun account") + '</p>';
+  if (DEMO) h += '<button class="set-save" style="background:var(--danger);margin-top:12px" onclick="resetDemo()">↺ Azzera dati demo</button>';
+  h += '</div>';
+  return h;
+}
+function salvaSet(){
+  ATT.nome = G("set-nome").value.trim() || ATT.nome;
+  ATT.citta = G("set-citta").value.trim();
+  G("hdr-att").textContent = ATT.nome;
+  alert("✓ Salvato");
+}
+function resetDemo(){
+  if (!confirm("Azzero tutti i dati demo?")) return;
+  localStorage.removeItem(STORE_KEY); DB.cache = null; render();
+}
+
+// ═══ MODAL ═══
+function openModal(html){ G("m-box").innerHTML = '<button class="m-close" onclick="closeModal()">✕</button>' + html; G("modal").classList.add("open"); }
+function closeModal(){ G("modal").classList.remove("open"); }
+G("modal").addEventListener("click", function(e){ if (e.target === G("modal")) closeModal(); });
+
+// ═══ SESSIONE AUTO ═══
+if (sessionStorage.getItem("fh_auth")) {
+  ATT = { nome:"Pasticceria Fagotti", citta:"Roma", piano:"interno" };
+  G("login").classList.add("hidden");
+  syncAll(function(){ enterApp(); });
+}
+G("l-pwd").addEventListener("keydown", function(e){ if (e.key === "Enter") doLogin(); });
+
+// ═══ PWA SERVICE WORKER ═══
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("service-worker.js").catch(function(e){ console.warn("SW:", e); });
+  });
+}
+</script>
+</body>
+</html>
