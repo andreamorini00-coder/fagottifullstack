@@ -238,7 +238,7 @@ button{font-family:var(--font-d)}
 <div id="login">
   <div class="l-logo">Fagotti <span>Fullstack</span></div>
   <div class="l-sub">Pasticceria Fagotti · cruscotto unico</div>
-  <div class="l-badge">⭐ v1.3 · PREMIUM SBLOCCATO</div>
+  <div class="l-badge">⭐ v1.4 · PREMIUM SBLOCCATO</div>
   <input class="l-input" type="password" id="l-pwd" placeholder="Password" autocomplete="off">
   <div class="l-err" id="l-err"></div>
   <button class="l-btn" onclick="doLogin()">Entra →</button>
@@ -492,6 +492,7 @@ var CDB = {
     var d = this.defaults();
     Object.keys(d).forEach(function(k){ if (c[k] === undefined || c[k] === null) c[k] = d[k]; });
     if (!c.listino.length) c.listino = d.listino;
+    c.listino.forEach(function(t){ if (t.attiva === undefined) t.attiva = true; });
     return c;
   },
   load: function(){
@@ -1564,10 +1565,14 @@ function rBotTorte(){
   if (c.aggiornato) h += '<div class="bar-actions"><span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">Ultima pubblicazione: ' + esc(c.aggiornato) + '</span></div>';
 
   // ── Torte & prezzi ──
-  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">🎂 Torte a catalogo (€/kg)</div>';
+  var nAtt = c.listino.filter(function(t){ return t.attiva !== false; }).length;
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">🎂 Torte a catalogo (€/kg) · <span style="color:var(--brand-deep)">' + nAtt + ' attive su ' + c.listino.length + '</span></div>';
+  h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-bottom:6px">☑️ = la torta appare nel bot · togli la spunta per escluderla senza cancellarla</div>';
   c.listino.forEach(function(t, i){
-    h += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--paper);font-size:13px">' +
-      '<span style="flex:1;font-weight:700">' + esc(t.nome) + '</span>' +
+    var off = t.attiva === false;
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--paper);font-size:13px' + (off ? ';opacity:.45' : '') + '">' +
+      '<input type="checkbox" style="width:19px;height:19px;accent-color:var(--brand);cursor:pointer;flex-shrink:0"' + (off ? '' : ' checked') + ' onchange="togTorta(' + i + ')">' +
+      '<span style="flex:1;font-weight:700' + (off ? ';text-decoration:line-through' : '') + '">' + esc(t.nome) + '</span>' +
       '<span style="font-family:var(--font-m);color:var(--brand-deep)">€' + t.prezzoKg + '/kg</span>' +
       '<button class="st st-confermato" onclick="mTorta(' + i + ')">✎</button>' +
       '<button class="st st-nuovo" onclick="delTorta(' + i + ')">✕</button></div>';
@@ -1600,7 +1605,7 @@ function rBotTorte(){
   }
   h += '</div>';
 
-  h += '<button class="set-save" style="width:100%;max-width:560px;padding:14px;font-size:15px" onclick="pubblicaCatalogo()">🚀 Pubblica catalogo su WaFagotti</button>';
+  h += '<button class="set-save" style="width:100%;max-width:560px;padding:14px;font-size:15px" onclick="pubblicaCatalogo(this)">🚀 Pubblica catalogo su WaFagotti</button>';
   h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:10px;line-height:1.7">Il bot WaFagotti legge questo catalogo da Firestore a ogni apertura: le modifiche pubblicate sono subito online, senza toccare il codice.</div>';
   return h;
 }
@@ -1638,6 +1643,13 @@ function rmVoce(campo, i){
   try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
   render();
 }
+function togTorta(i){
+  salvaParametriBot(); // preserva i campi digitati (numero WA ecc.) prima del re-render
+  var c = CDB.load();
+  c.listino[i].attiva = c.listino[i].attiva === false ? true : false;
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(c)); } catch(e) {}
+  render(); // la pubblicazione su Firestore avviene solo con 🚀 Pubblica
+}
 function mTorta(i){
   salvaParametriBot();
   var t = i >= 0 ? CDB.load().listino[i] : null;
@@ -1652,7 +1664,7 @@ function salvaTorta(){
   var prezzo = parseFloat(G("tt-prezzo").value) || 0;
   if (!nome || !prezzo) { alert("Inserisci nome e prezzo al kg."); return; }
   var i = parseInt(G("tt-i").value, 10);
-  if (i >= 0) CDB.load().listino[i] = { nome:nome, prezzoKg:prezzo };
+  if (i >= 0) { var pre = CDB.load().listino[i]; CDB.load().listino[i] = { nome:nome, prezzoKg:prezzo, attiva: pre.attiva !== false }; }
   else CDB.load().listino.push({ nome:nome, prezzoKg:prezzo });
   try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
   closeModal(); render();
@@ -1671,12 +1683,46 @@ function copiaLinkUnico(){
     navigator.clipboard.writeText(u).then(function(){ alert("Link copiato! Incollalo nella bio Instagram o sul profilo Google."); }, function(){ prompt("Copia:", u); });
   } else { prompt("Copia:", u); }
 }
-function pubblicaCatalogo(){
+function pubblicaCatalogo(btn){
+  // Handler leggero: feedback immediato sul bottone, lavoro pesante fuori dal click (niente blocchi UI)
   salvaParametriBot();
-  CDB.save();
-  DB.add("notifiche", { ico:"🎂", txt:"Catalogo bot torte pubblicato su Firestore", t:"ora", letta:false });
-  alert("🚀 Catalogo pubblicato! Il bot WaFagotti lo usera\' dalla prossima apertura.");
-  render();
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Pubblico e verifico…"; }
+  setTimeout(function(){
+    var c = CDB.load();
+    c.aggiornato = new Date().toLocaleDateString("it-IT") + " " + String(new Date().getHours()).padStart(2,"0") + ":" + String(new Date().getMinutes()).padStart(2,"0");
+    try { localStorage.setItem(CAT_KEY, JSON.stringify(c)); } catch(e) {}
+    // Pubblico SOLO le torte attive (le escluse restano qui nel hub)
+    var pub = JSON.parse(JSON.stringify(c));
+    pub.listino = c.listino.filter(function(t){ return t.attiva !== false; })
+                           .map(function(t){ return { nome:t.nome, prezzoKg:t.prezzoKg }; });
+    function esito(ok, msg){
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = ok ? "✅ " + msg : "❌ " + msg;
+        btn.style.background = ok ? "var(--success)" : "#ef4444";
+        setTimeout(function(){ btn.textContent = "🚀 Pubblica catalogo su WaFagotti"; btn.style.background = ""; }, 5000);
+      }
+      DB.add("notifiche", { ico: ok ? "🎂" : "⚠️", txt: msg, t:"ora", letta:false });
+    }
+    if (!db) { esito(false, "Firestore non disponibile: pubblicazione non riuscita"); return; }
+    db.collection("bot_app").doc("catalogo").set(pub)
+      .then(function(){
+        // VERIFICA: rileggo il documento appena scritto e controllo i dati reali online
+        return db.collection("bot_app").doc("catalogo").get();
+      })
+      .then(function(snap){
+        var d = snap.exists ? (snap.data() || {}) : {};
+        var nT = (d.listino || []).length;
+        var wa = d.waNumber || "";
+        if (!nT) { esito(false, "Verifica fallita: catalogo vuoto online"); return; }
+        esito(true, "Pubblicato e verificato: " + nT + " torte online" + (wa ? " · WA " + wa : " · ⚠️ SENZA numero WA"));
+      })
+      .catch(function(e){
+        var m = String(e && (e.code || e.message) || e);
+        if (m.indexOf("permission") >= 0) esito(false, "Firestore rifiuta la scrittura: controlla le regole del database (permessi scaduti?)");
+        else esito(false, "Errore pubblicazione: " + m);
+      });
+  }, 30);
 }
 // ═══ FORNITORI v2 (liste per fornitore \u2192 WhatsApp al numero collegato) ═══
 var pendingProd = null;
