@@ -226,6 +226,11 @@ button{font-family:var(--font-d)}
 .wa-btn2{flex:1;border:none;border-radius:8px;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;padding:8px 6px;font-family:var(--font-d)}
 .st-annullato{background:#fef2f2;color:#ef4444}
 .tot-mese{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+
+/* LINK UNICO — box come shop-app WorkMor */
+.link-box{background:var(--brand-tint);border:1px dashed var(--brand-deep);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.link-box .u{flex:1;font-family:var(--font-m);font-size:12px;color:var(--brand-deep);word-break:break-all;min-width:180px}
+.btn-dark{background:var(--ink);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
@@ -479,7 +484,7 @@ var CDB = {
       farciture: ["Crema pasticciera","Crema chantilly","Crema al cioccolato","Fragole fresche","Frutti di bosco","Pistacchio","Nocciola","Nessuna particolare"],
       decorazioni: ["Classica con panna","Frutta fresca","Cioccolato e riccioli","Fiori di zucchero","Minimal elegante","Pasta di zucchero","Nessuna particolare"],
       orari: ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","14:00","15:00","16:00","17:00","18:00","19:00"],
-      costoConsegna: 10, kgPersona: 0.15, stimaMin: 85, stimaMax: 115, waNumber: "", shopUrl: "",
+      costoConsegna: 10, kgPersona: 0.15, stimaMin: 85, stimaMax: 115, waNumber: "", shopUrl: "", pageUrl: "",
       aggiornato: ""
     };
   },
@@ -1585,10 +1590,15 @@ function rBotTorte(){
   h += '<span class="ob-label">Link Shop (mostrato nel menu del link unico — vuoto = nascosto)</span><input class="ob-input" id="bt-shop" value="' + escA(c.shopUrl||"") + '" placeholder="https://...">';
   h += '</div>';
 
-  h += '<div class="set-box" style="max-width:560px"><div class="set-title">🔗 Link unico (Instagram · Google)</div>';
-  h += '<p style="font-size:13px;color:var(--ink-soft);line-height:1.7;margin-bottom:8px">Metti nella bio Instagram e sul profilo Google <b>l\'indirizzo della pagina WaFagotti</b> (il sito del bot). Chi lo apre trova il menu:</p>';
-  h += '<div style="font-size:13px;line-height:2">🎂 <b>Ordina la tua torta</b> — configuratore con invio ordine, pagamento online o "parla con noi"<br>🛍️ <b>Shop</b> — appare solo se compili il Link Shop qui sopra<br>💬 <b>Parla con la pasticceria</b> — apre WhatsApp al numero del bot (appare solo se il numero \u00e8 configurato)</div>';
-  h += '<p style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:8px">I tre percorsi non si accavallano: la chat del bot parte solo se il cliente sceglie "Ordina".</p></div>';
+  h += '<div class="set-box" style="max-width:560px"><div class="set-title">🔗 Link unico del negozio</div>';
+  h += '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:8px">Mettilo nella bio Instagram e sul profilo Google. I clienti trovano: 🎂 Ordina · 🛍️ Shop · 💬 Parla con noi (i percorsi non si accavallano).</p>';
+  if (c.pageUrl) {
+    h += '<div class="link-box"><div class="u">' + esc(c.pageUrl) + '</div><button class="btn-dark" onclick="copiaLinkUnico()">📋 Copia link</button></div>';
+  } else {
+    h += '<div class="link-box"><div class="u">Il link si genera da solo: apri una volta la pagina WaFagotti pubblicata online e comparir\u00e0 qui.</div></div>';
+    h += '<span class="ob-label">Oppure inseriscilo a mano</span><input class="ob-input" id="bt-url" placeholder="https://wafagotti.vercel.app" style="max-width:560px">';
+  }
+  h += '</div>';
 
   h += '<button class="set-save" style="width:100%;max-width:560px;padding:14px;font-size:15px" onclick="pubblicaCatalogo()">🚀 Pubblica catalogo su WaFagotti</button>';
   h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:10px;line-height:1.7">Il bot WaFagotti legge questo catalogo da Firestore a ogni apertura: le modifiche pubblicate sono subito online, senza toccare il codice.</div>';
@@ -1611,6 +1621,7 @@ function salvaParametriBot(){
   if (G("bt-max")) c.stimaMax = parseFloat(G("bt-max").value) || 115;
   if (G("bt-wa")) c.waNumber = G("bt-wa").value.replace(/[^0-9]/g, "");
   if (G("bt-shop")) c.shopUrl = G("bt-shop").value.trim();
+  if (G("bt-url") && G("bt-url").value.trim()) c.pageUrl = G("bt-url").value.trim();
 }
 function addVoce(campo){
   salvaParametriBot();
@@ -1652,6 +1663,13 @@ function delTorta(i){
   CDB.load().listino.splice(i, 1);
   try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
   render();
+}
+function copiaLinkUnico(){
+  var u = (CDB.load().pageUrl || "").trim();
+  if (!u) { alert("Link non ancora disponibile."); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(u).then(function(){ alert("Link copiato! Incollalo nella bio Instagram o sul profilo Google."); }, function(){ prompt("Copia:", u); });
+  } else { prompt("Copia:", u); }
 }
 function pubblicaCatalogo(){
   salvaParametriBot();
