@@ -479,7 +479,7 @@ var CDB = {
       farciture: ["Crema pasticciera","Crema chantilly","Crema al cioccolato","Fragole fresche","Frutti di bosco","Pistacchio","Nocciola","Nessuna particolare"],
       decorazioni: ["Classica con panna","Frutta fresca","Cioccolato e riccioli","Fiori di zucchero","Minimal elegante","Pasta di zucchero","Nessuna particolare"],
       orari: ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","14:00","15:00","16:00","17:00","18:00","19:00"],
-      costoConsegna: 10, kgPersona: 0.15, stimaMin: 85, stimaMax: 115, waNumber: "",
+      costoConsegna: 10, kgPersona: 0.15, stimaMin: 85, stimaMax: 115, waNumber: "", shopUrl: "",
       aggiornato: ""
     };
   },
@@ -1580,8 +1580,15 @@ function rBotTorte(){
     '<div><span class="ob-label">Kg a persona (stima porzioni)</span><input class="ob-input" type="number" step="0.01" id="bt-kgp" value="' + c.kgPersona + '"></div></div>';
   h += '<div class="m-2col"><div><span class="ob-label">Stima minima % (es. 85)</span><input class="ob-input" type="number" step="1" id="bt-min" value="' + c.stimaMin + '"></div>' +
     '<div><span class="ob-label">Stima massima % (es. 115)</span><input class="ob-input" type="number" step="1" id="bt-max" value="' + c.stimaMax + '"></div></div>';
-  h += '<span class="ob-label">Numero WhatsApp del bot (39 + numero, senza +)</span><input class="ob-input" id="bt-wa" value="' + escA(c.waNumber||"") + '" placeholder="393331234567">';
+  h += '<span class="ob-label">Numero WhatsApp del bot (39 + numero, senza +) ⚠️ OBBLIGATORIO</span><input class="ob-input" id="bt-wa" value="' + escA(c.waNumber||"") + '" placeholder="393331234567">';
+  if (!c.waNumber) h += '<div style="background:var(--warning-tint);border-radius:10px;padding:9px 12px;margin-top:6px;font-size:12px;color:var(--warning)">⚠️ Senza numero, il bot NON apre WhatsApp (niente numeri fittizi): registra comunque l\'ordine qui nel hub e avvisa il cliente che verr\u00e0 ricontattato.</div>';
+  h += '<span class="ob-label">Link Shop (mostrato nel menu del link unico — vuoto = nascosto)</span><input class="ob-input" id="bt-shop" value="' + escA(c.shopUrl||"") + '" placeholder="https://...">';
   h += '</div>';
+
+  h += '<div class="set-box" style="max-width:560px"><div class="set-title">🔗 Link unico (Instagram · Google)</div>';
+  h += '<p style="font-size:13px;color:var(--ink-soft);line-height:1.7;margin-bottom:8px">Metti nella bio Instagram e sul profilo Google <b>l\'indirizzo della pagina WaFagotti</b> (il sito del bot). Chi lo apre trova il menu:</p>';
+  h += '<div style="font-size:13px;line-height:2">🎂 <b>Ordina la tua torta</b> — configuratore con invio ordine, pagamento online o "parla con noi"<br>🛍️ <b>Shop</b> — appare solo se compili il Link Shop qui sopra<br>💬 <b>Parla con la pasticceria</b> — apre WhatsApp al numero del bot (appare solo se il numero \u00e8 configurato)</div>';
+  h += '<p style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:8px">I tre percorsi non si accavallano: la chat del bot parte solo se il cliente sceglie "Ordina".</p></div>';
 
   h += '<button class="set-save" style="width:100%;max-width:560px;padding:14px;font-size:15px" onclick="pubblicaCatalogo()">🚀 Pubblica catalogo su WaFagotti</button>';
   h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:10px;line-height:1.7">Il bot WaFagotti legge questo catalogo da Firestore a ogni apertura: le modifiche pubblicate sono subito online, senza toccare il codice.</div>';
@@ -1603,6 +1610,7 @@ function salvaParametriBot(){
   if (G("bt-min")) c.stimaMin = parseFloat(G("bt-min").value) || 85;
   if (G("bt-max")) c.stimaMax = parseFloat(G("bt-max").value) || 115;
   if (G("bt-wa")) c.waNumber = G("bt-wa").value.replace(/[^0-9]/g, "");
+  if (G("bt-shop")) c.shopUrl = G("bt-shop").value.trim();
 }
 function addVoce(campo){
   salvaParametriBot();
