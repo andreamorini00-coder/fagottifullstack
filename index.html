@@ -178,7 +178,7 @@ button{font-family:var(--font-d)}
 <div id="login">
   <div class="l-logo">Fagotti <span>Fullstack</span></div>
   <div class="l-sub">Pasticceria Fagotti · cruscotto unico</div>
-  <div class="l-badge">⭐ v0.1 · FONDAMENTA + TURNI</div>
+  <div class="l-badge">⭐ v1.0 · FULLSTACK COMPLETO</div>
   <input class="l-input" type="password" id="l-pwd" placeholder="Password" autocomplete="off">
   <div class="l-err" id="l-err"></div>
   <button class="l-btn" onclick="doLogin()">Entra →</button>
@@ -234,9 +234,11 @@ button{font-family:var(--font-d)}
 
 <script>
 // ═══════════════════════════════════════════════════════════
-// FAGOTTI HUB — Firebase Firestore (progetto ordini-fagotti-bd9d8)
-// Doc HUB:   hub_app/fagotti          (ordini, shop, ricette, fornitori, clienti)
-// Doc TURNI: turni_app/fagotti_pro    (CONDIVISO con l'app turni-ferie: stesso formato)
+// FAGOTTI FULLSTACK v1.0 — Firebase Firestore (progetto ordini-fagotti-bd9d8)
+// Doc HUB:      hub_app/fagotti        (ordini, clienti, ricette, shop, fornitori, impostazioni)
+// Doc TURNI:    turni_app/fagotti_pro  (CONDIVISO con l'app turni-ferie: stesso formato)
+// Doc BOT:      bot_app/catalogo       (catalogo torte letto da WaFagotti)
+// Collezione:   ordini_online          (ordini completati dal bot WaFagotti → modulo Ordini)
 // ═══════════════════════════════════════════════════════════
 var db = null;
 try {
@@ -253,32 +255,56 @@ try {
 var DEMO = false;
 
 var ATT = null, USER = null, vista = "oggi";
-var obData = {}, filtroOrdini = "tutti", filtroPren = "oggi";
+var obData = {}, filtroOrdini = "tutti", filtroCatAlg = "Tutte";
 var STORE_KEY = "fagotti_fullstack_v1";
 var TURNI_KEY = "workmor_turni_hub_cache_v1";
+var CAT_KEY = "fagotti_fullstack_botcat_v1";
 
 function G(id){ return document.getElementById(id); }
 function uid(){ return "id-" + Math.random().toString(36).slice(2, 10); }
 function todayStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function eur(n){ return "€ " + (Math.round(n*100)/100).toFixed(2).replace(".", ","); }
 function dataIT(iso){ if(!iso) return ""; var p = iso.split("-"); return p[2] + "/" + p[1]; }
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escA(s){ return esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function escJS(s){ return String(s == null ? "" : s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
 
-// ═══ DATA LAYER (demo: localStorage · reale: Supabase) ═══
+// ═══ TEMPLATE WHATSAPP (modificabili in Impostazioni) ═══
+function tplDefaults(){
+  return {
+    tpl_pronto: "Ciao {cliente}! Il tuo ordine {numero} ({righe}) e' PRONTO per il ritiro. Ti aspettiamo! — {attivita}",
+    tpl_promemoria: "Ciao {cliente}! Ti ricordiamo il tuo ordine {numero} ({righe}) previsto per il {data} alle {ora}. A presto! — {attivita}",
+    tpl_online: "Ciao {cliente}! Abbiamo ricevuto il tuo ordine online {numero} ({righe}). Ritiro il {data} alle {ora}. Grazie! — {attivita}",
+    tpl_fornitore: "Buongiorno! Ordine da {attivita} — {data}"
+  };
+}
+function applyTpl(tpl, map){
+  var out = tpl || "";
+  Object.keys(map).forEach(function(k){ out = out.split("{" + k + "}").join(map[k]); });
+  return out;
+}
+function getTpl(nome){
+  var s = DB.load().settings || {};
+  var t = (s.waTemplates || {})[nome];
+  return (t && t.trim()) ? t : tplDefaults()[nome];
+}
+
+// ═══ DATA LAYER (localStorage + Firestore hub_app/fagotti) ═══
 var DB = {
   cache: null,
   seed: function(){
     return {
       ordini: [],
       clienti: [],
-      notifiche: [ { id:uid(), ico:"\ud83c\udf82", txt:"Benvenuta in Fagotti Fullstack! Si parte dai Turni: li testiamo e perfezioniamo, poi sblocchiamo un modulo alla volta.", t:"ora", letta:false } ],
+      notifiche: [ { id:uid(), ico:"\ud83c\udf82", txt:"Benvenuta in Fagotti Fullstack v1.0: Turni, Ordini, Allergeni, Bot torte, Shop e Fornitori sono tutti attivi.", t:"ora", letta:false } ],
       shop_articoli: [
-        { id:uid(), nome:"Panettone artigianale", prezzo:28, taglie:["750g","1kg"], colori:["Classico","Cioccolato"], off:"", disp:true },
-        { id:uid(), nome:"Scatola pasticcini misti", prezzo:18, taglie:["12 pz","24 pz"], colori:[], off:"", disp:true },
-        { id:uid(), nome:"Frollini artigianali", prezzo:6.5, taglie:[], colori:["Burro","Cacao"], off:"", disp:true }
+        { id:uid(), nome:"Panettone artigianale", prezzo:28, taglie:["750g","1kg"], colori:["Classico","Cioccolato"], off:"", disp:true, pesoKg:1.2, sped:true },
+        { id:uid(), nome:"Scatola pasticcini misti", prezzo:18, taglie:["12 pz","24 pz"], colori:[], off:"", disp:true, pesoKg:0.6, sped:false },
+        { id:uid(), nome:"Frollini artigianali", prezzo:6.5, taglie:[], colori:["Burro","Cacao"], off:"", disp:true, pesoKg:0.3, sped:true }
       ],
       ricette: [
-        { id:uid(), nome:"Torta Millefoglie", ingredienti:"farina di FRUMENTO, LATTE fresco, UOVA, panna (LATTE), zucchero, fragole", allergeni:["Glutine","Latte","Uova"] },
-        { id:uid(), nome:"Pasticcini misti", ingredienti:"farina di FRUMENTO, BURRO, UOVA, MANDORLE, NOCCIOLE, zucchero, cioccolato (puo' contenere SOIA)", allergeni:["Glutine","Latte","Uova","Frutta a guscio","Soia"] }
+        { id:uid(), nome:"Torta Millefoglie", cat:"Torte", ingredienti:"farina di frumento, latte fresco, uova, panna, zucchero, fragole", allergeni:["Glutine","Latte","Uova"] },
+        { id:uid(), nome:"Pasticcini misti", cat:"Mignon", ingredienti:"farina di frumento, burro, uova, mandorle, nocciole, zucchero, cioccolato (puo' contenere soia)", allergeni:["Glutine","Latte","Uova","Frutta a guscio","Soia"] }
       ],
       fornitori_anag: [
         { id:uid(), nome:"Doreca", tel:"" },
@@ -294,14 +320,33 @@ var DB = {
         { id:uid(), nome:"Uova fresche", fornitore:"Latteria Val d'Oro", unita:"plateau 30" }
       ],
       lista_spesa: [],
-      incassoSett: [0, 0, 0, 0, 0, 0]
+      incassoSett: [0, 0, 0, 0, 0, 0],
+      spedizioni: this.spedDefaults(),
+      settings: { attivita:{ nome:"Pasticceria Fagotti", citta:"Roma" }, waTemplates: tplDefaults() }
     };
+  },
+  spedDefaults: function(){
+    return {
+      fasce: [ { maxKg:2, costo:7.9 }, { maxKg:5, costo:9.9 }, { maxKg:10, costo:12.9 }, { maxKg:20, costo:16.9 } ],
+      extraKg: 0.8, sogliaGratis: 79, imballo: 1.5
+    };
+  },
+  migra: function(d){
+    if (!d.settings) d.settings = {};
+    if (!d.settings.attivita) d.settings.attivita = { nome:"Pasticceria Fagotti", citta:"Roma" };
+    if (!d.settings.waTemplates) d.settings.waTemplates = tplDefaults();
+    if (!d.spedizioni || !d.spedizioni.fasce) d.spedizioni = this.spedDefaults();
+    ["ordini","clienti","notifiche","shop_articoli","ricette","fornitori_anag","dispensa","lista_spesa"].forEach(function(k){
+      if (!d[k]) d[k] = [];
+    });
+    if (!d.incassoSett) d.incassoSett = [0,0,0,0,0,0];
+    return d;
   },
   load: function(){
     if (this.cache) return this.cache;
     try {
       var raw = localStorage.getItem(STORE_KEY);
-      this.cache = raw ? JSON.parse(raw) : this.seed();
+      this.cache = raw ? this.migra(JSON.parse(raw)) : this.seed();
     } catch(e) { this.cache = this.seed(); }
     return this.cache;
   },
@@ -318,8 +363,8 @@ var DB = {
   add: function(coll, obj){
     obj.id = obj.id || uid();
     this.load()[coll].unshift(obj);
+    if (coll === "notifiche" && this.load().notifiche.length > 30) this.load().notifiche = this.load().notifiche.slice(0, 30);
     this.save();
-    // Supabase sync (fire-and-forget) quando configurato — mapping tabelle Sprint 2+
     return obj;
   },
   update: function(coll, id, patch){
@@ -337,7 +382,53 @@ var DB = {
   }
 };
 
-
+// ═══ CDB — CATALOGO BOT TORTE (bot_app/catalogo · letto da WaFagotti) ═══
+var CDB = {
+  cache: null,
+  defaults: function(){
+    return {
+      listino: [
+        {nome:"Tiramisù classico",prezzoKg:30},{nome:"Millefoglie fragole",prezzoKg:27},{nome:"Sacher",prezzoKg:27},{nome:"Cheesecake",prezzoKg:30},
+        {nome:"Red Velvet",prezzoKg:30},{nome:"Charlotte limone",prezzoKg:35},{nome:"Tre cioccolati",prezzoKg:30},{nome:"Profitterole",prezzoKg:27},
+        {nome:"Montblanc",prezzoKg:35},{nome:"Meringata frutti bosco",prezzoKg:30},{nome:"Pavlova",prezzoKg:30},{nome:"Saint Honorè",prezzoKg:27},
+        {nome:"Lemon tart",prezzoKg:30},{nome:"Black Forest",prezzoKg:27},{nome:"Cream tart",prezzoKg:30},{nome:"Afrodite",prezzoKg:30},
+        {nome:"Diplomatica",prezzoKg:27},{nome:"Dolce castagne",prezzoKg:35},{nome:"Kinder",prezzoKg:27},{nome:"Mandarinoir",prezzoKg:35},
+        {nome:"Marika",prezzoKg:35},{nome:"Millefoglie classico",prezzoKg:27},{nome:"Mimosa",prezzoKg:27},{nome:"Moretta",prezzoKg:27},
+        {nome:"Ohana",prezzoKg:30},{nome:"Pastiera",prezzoKg:30},{nome:"Serendipity",prezzoKg:35},{nome:"Settembrina",prezzoKg:35},{nome:"Sveva",prezzoKg:35},
+        {nome:"Tiramisù fragole",prezzoKg:30},{nome:"Ugly cake",prezzoKg:27},{nome:"Zuccotto",prezzoKg:27}
+      ],
+      farciture: ["Crema pasticciera","Crema chantilly","Crema al cioccolato","Fragole fresche","Frutti di bosco","Pistacchio","Nocciola","Nessuna particolare"],
+      decorazioni: ["Classica con panna","Frutta fresca","Cioccolato e riccioli","Fiori di zucchero","Minimal elegante","Pasta di zucchero","Nessuna particolare"],
+      orari: ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","14:00","15:00","16:00","17:00","18:00","19:00"],
+      costoConsegna: 10, kgPersona: 0.15, stimaMin: 85, stimaMax: 115, waNumber: "",
+      aggiornato: ""
+    };
+  },
+  migra: function(c){
+    var d = this.defaults();
+    Object.keys(d).forEach(function(k){ if (c[k] === undefined || c[k] === null) c[k] = d[k]; });
+    if (!c.listino.length) c.listino = d.listino;
+    return c;
+  },
+  load: function(){
+    if (this.cache) return this.cache;
+    try {
+      var raw = localStorage.getItem(CAT_KEY);
+      this.cache = raw ? this.migra(JSON.parse(raw)) : this.defaults();
+    } catch(e) { this.cache = this.defaults(); }
+    return this.cache;
+  },
+  save: function(){
+    this.cache.aggiornato = new Date().toLocaleDateString("it-IT") + " " + String(new Date().getHours()).padStart(2,"0") + ":" + String(new Date().getMinutes()).padStart(2,"0");
+    try { localStorage.setItem(CAT_KEY, JSON.stringify(this.cache)); } catch(e) {}
+    if (db) {
+      setSyncDot("lo");
+      db.collection("bot_app").doc("catalogo").set(this.cache)
+        .then(function(){ setSyncDot("ok"); })
+        .catch(function(e){ console.warn("FS catalogo:", e); setSyncDot("er"); });
+    }
+  }
+};
 // ═══ TDB — TURNI CONDIVISI con app turni-ferie (turni_app/fagotti_pro) ═══
 var TDB = {
   cache: null,
@@ -398,14 +489,16 @@ var TDB = {
     this.save();
   }
 };
+
+// ═══ SYNC (hub + turni + catalogo bot + ordini online) ═══
 function syncAll(callback){
   if (!db) { callback(); return; }
   setSyncDot("lo");
   var done = 0;
-  function fine(){ done++; if (done === 2) { setSyncDot("ok"); callback(); } }
+  function fine(){ done++; if (done === 3) { setSyncDot("ok"); checkOrdiniOnline(false); callback(); } }
   db.collection("hub_app").doc("fagotti").get().then(function(doc){
     if (doc.exists) {
-      DB.cache = doc.data();
+      DB.cache = DB.migra(doc.data());
       try { localStorage.setItem(STORE_KEY, JSON.stringify(DB.cache)); } catch(e) {}
     } else { DB.load(); }
     fine();
@@ -419,10 +512,55 @@ function syncAll(callback){
     } else { TDB.load(); }
     fine();
   }).catch(function(e){ console.warn("FS turni sync:", e); TDB.load(); fine(); });
+  db.collection("bot_app").doc("catalogo").get().then(function(doc){
+    if (doc.exists) {
+      CDB.cache = CDB.migra(doc.data());
+      try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
+    } else { CDB.load(); }
+    fine();
+  }).catch(function(e){ console.warn("FS catalogo sync:", e); CDB.load(); fine(); });
 }
+
+// ═══ ORDINI ONLINE dal bot WaFagotti (collezione ordini_online) ═══
+function righeDaBot(x){
+  var r = "Torta " + (x.torta||"?") + " · " + (x.persone||"?") + " persone · " + (x.farcitura||"—") + " · " + (x.decorazione||"—");
+  if (x.scritta) r += ' · Scritta: "' + x.scritta + '"';
+  r += x.consegna ? " · \ud83d\ude97 consegna a domicilio" : " · \ud83c\udfea ritiro in negozio";
+  return r;
+}
+function checkOrdiniOnline(manuale){
+  if (!db) { if (manuale) alert("Firestore non disponibile."); return; }
+  db.collection("ordini_online").where("importato", "==", false).get().then(function(snap){
+    var n = 0;
+    snap.forEach(function(d){
+      var x = d.data();
+      DB.add("ordini", {
+        numero: x.numero || ("WEB-" + d.id.slice(0, 4).toUpperCase()),
+        canale: "online",
+        cliente: x.nome || "Cliente online",
+        tel: x.telefono || "",
+        righe: righeDaBot(x),
+        data: x.dataISO || todayStr(),
+        ora: x.orario || "",
+        stato: "nuovo",
+        totale: (x.pagato && x.importo) ? x.importo : (x.stimaBase || 0),
+        pagato: !!x.pagato,
+        consegna: !!x.consegna
+      });
+      if (x.nome) autoCliente(x.nome, x.telefono || "");
+      d.ref.update({ importato: true }).catch(function(e){ console.warn("mark importato:", e); });
+      n++;
+    });
+    if (n) {
+      DB.add("notifiche", { ico:"\ud83c\udf10", txt:n + (n === 1 ? " nuovo ordine online" : " nuovi ordini online") + " dal bot torte", t:"ora", letta:false });
+      render();
+    } else if (manuale) {
+      alert("Nessun nuovo ordine online.");
+    }
+  }).catch(function(e){ console.warn("ordini_online:", e); if (manuale) alert("Errore lettura ordini online: " + e.message); });
+}
+
 function setSyncDot(s){
-  var el = document.getElementById("bell-dot"); // riuso sobrio: log console se UI assente
-  var c = { ok:"#22c55e", lo:"#f59e0b", er:"#ef4444" };
   var hd = document.querySelector(".hdr-brand span");
   if (hd) hd.style.color = s === "er" ? "#ef4444" : "#7C3AED";
   console.log("[sync]", s);
@@ -430,13 +568,16 @@ function setSyncDot(s){
 
 // ═══ AUTH ═══
 var HUB_PWD = "fagotti2024";
+function attivitaDaSettings(){
+  var a = (DB.load().settings || {}).attivita || {};
+  return { nome: a.nome || "Pasticceria Fagotti", citta: a.citta || "Roma", piano: "interno" };
+}
 function doLogin(){
   var pwd = G("l-pwd").value;
   if (pwd !== HUB_PWD) { G("l-err").textContent = "Password errata."; G("l-pwd").value = ""; return; }
   sessionStorage.setItem("fh_auth", "1");
-  ATT = { nome:"Pasticceria Fagotti", citta:"Roma", piano:"interno" };
   G("login").classList.add("hidden");
-  syncAll(function(){ enterApp(); });
+  syncAll(function(){ ATT = attivitaDaSettings(); enterApp(); });
 }
 function doLogout(){
   sessionStorage.removeItem("fh_auth");
@@ -448,11 +589,14 @@ function doLogout(){
 // ═══ NAVIGATION ═══
 var VOCI = [
   { v:"oggi", ico:"🏠", n:"Oggi" },
+  { v:"ordini", ico:"📦", n:"Ordini" },
   { v:"turni", ico:"📅", n:"Turni" },
+  { v:"shop", ico:"🛍️", n:"Shop" },
+  { v:"allergeni", ico:"⚠️", n:"Allergeni" },
+  { v:"bottorte", ico:"🎂", n:"Bot torte" },
+  { v:"fornitori", ico:"🧾", n:"Fornitori" },
   { v:"impostazioni", ico:"⚙️", n:"Impostazioni" }
 ];
-// ── ROADMAP FULLSTACK: i moduli si sbloccano uno alla volta dopo il tuo OK ──
-// Step 2: Ordini · Step 3: Allergeni (+import lista ricca) · Step 4: Bot torte WaFagotti · Step 5: Shop con spedizioni
 function vociOrdinate(){
   var fisseTesta = ["oggi"], fisseCoda = ["impostazioni"];
   var mobili = VOCI.filter(function(x){ return fisseTesta.indexOf(x.v) < 0 && fisseCoda.indexOf(x.v) < 0; });
@@ -478,9 +622,8 @@ function moveTab(v, dir){
 function buildNav(){
   var tb = "", sd = "";
   vociOrdinate().forEach(function(x){
-    var lk = x.lock ? ' <span class="lk">🔒</span>' : "";
-    tb += '<button class="tab' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + lk + '</button>';
-    sd += '<button class="side-item' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + (x.lock ? '<span class="lk">' + x.lock + '</span>' : "") + '</button>';
+    tb += '<button class="tab' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + '</button>';
+    sd += '<button class="side-item' + (vista === x.v ? " on" : "") + '" onclick="nav(\'' + x.v + '\')">' + x.ico + ' ' + x.n + '</button>';
   });
   G("tabbar").innerHTML = tb;
   G("side").innerHTML = sd;
@@ -497,6 +640,7 @@ function nav(v){ vista = v; buildNav(); render(); window.scrollTo(0, 0); }
 // ═══ RENDER ═══
 function render(){
   var c = G("content");
+  if (!c || !ATT) return;
   var nonLette = DB.get("notifiche").filter(function(n){ return !n.letta; }).length;
   G("bell-dot").style.display = nonLette ? "block" : "none";
   G("bell-dot").textContent = nonLette;
@@ -506,17 +650,17 @@ function render(){
   else if (vista === "clienti") c.innerHTML = rClienti();
   else if (vista === "shop") c.innerHTML = rShop();
   else if (vista === "allergeni") c.innerHTML = rAllergeni();
+  else if (vista === "bottorte") c.innerHTML = rBotTorte();
   else if (vista === "fornitori") c.innerHTML = rFornitori();
-  else if (vista === "whatsapp") c.innerHTML = rWhatsApp();
   else if (vista === "impostazioni") c.innerHTML = rImpostazioni();
-  else c.innerHTML = rPlaceholder(vista);
+  else c.innerHTML = "";
 }
 
+// ═══ DASHBOARD OGGI ═══
 function rOggi(){
   var t = todayStr();
-  var ord = DB.get("ordini").filter(function(o){ return o.data === t; });
-  var nuovi = ord.filter(function(o){ return o.stato === "nuovo"; }).length;
-  var prep = ord.filter(function(o){ return o.stato === "in_preparazione"; }).length;
+  var ord = DB.get("ordini").filter(function(o){ return o.data === t && o.stato !== "ritirato"; });
+  var pronti = ord.filter(function(o){ return o.stato === "pronto"; }).length;
   var listaSpesa = DB.get("lista_spesa");
   var oreNow = new Date().getHours() + new Date().getMinutes()/60;
   var inTurno = [];
@@ -528,47 +672,55 @@ function rOggi(){
       if (oreNow >= i && oreNow < f) inTurno.push({ dip: dip.nome });
     }
   });
-  var incOggi = ord.filter(function(o){ return o.stato === "pronto" || o.stato === "ritirato"; }).reduce(function(s, o){ return s + o.totale; }, 0);
-  var sett = DB.get("incassoSett").concat([incOggi]);
-  var maxV = Math.max.apply(null, sett.concat([1]));
-
   var giorni = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
   var mesi = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
   var d = new Date();
   var h = '<div class="pg-title">Oggi, ' + giorni[d.getDay()] + ' ' + d.getDate() + ' ' + mesi[d.getMonth()] + '</div>';
-  h += '<div class="pg-sub">' + (ATT.nome||"") + ' · ' + pianoLabel(ATT.piano) + '</div><div class="grid">';
+  h += '<div class="pg-sub">' + esc(ATT.nome||"") + '</div><div class="grid">';
+
+  h += '<div class="kcard"><div class="k-top">📦 Ordini in consegna oggi</div><div class="k-num">' + ord.length + '</div>';
+  h += '<div class="k-det">' + (pronti ? '<b>' + pronti + '</b> pronti da avvisare' : (ord.length ? 'nessuno ancora pronto' : 'nessun ritiro previsto')) + '</div>';
+  h += '<span class="k-link" onclick="nav(\'ordini\')">Vai a Ordini →</span></div>';
 
   h += '<div class="kcard"><div class="k-top">👥 In turno ora</div><div class="k-num">' + inTurno.length + '</div><div class="chips">';
-  inTurno.forEach(function(x){ h += '<span class="chip">' + x.dip + '</span>'; });
+  inTurno.forEach(function(x){ h += '<span class="chip">' + esc(x.dip) + '</span>'; });
   if (!inTurno.length) h += '<span class="k-det">Nessuno in questo orario</span>';
   h += '</div><span class="k-link" onclick="nav(\'turni\')">Vai a Turni →</span></div>';
 
+  h += '<div class="kcard"><div class="k-top">🛒 Lista spesa</div><div class="k-num">' + listaSpesa.length + '</div>';
+  h += '<div class="k-det">' + (listaSpesa.length ? 'prodotti da ordinare ai fornitori' : 'tutto in dispensa') + '</div>';
+  h += '<span class="k-link" onclick="nav(\'fornitori\')">Vai a Fornitori →</span></div>';
+
   h += '<div class="kcard wide"><div class="k-top">🔔 Notifiche</div>';
   DB.get("notifiche").slice(0, 5).forEach(function(n){
-    h += '<div class="ntf"><span>' + n.ico + '</span><span>' + n.txt + '</span><span class="ntf-time">' + n.t + '</span></div>';
+    h += '<div class="ntf"><span>' + n.ico + '</span><span>' + esc(n.txt) + '</span><span class="ntf-time">' + esc(n.t) + '</span></div>';
   });
   h += '</div></div>';
   return h;
 }
 
-// ═══ ORDINI ═══
+// ═══ ORDINI (banco 🏪 + online 🌐) ═══
 var CICLO_ORDINE = ["nuovo","confermato","in_preparazione","pronto","ritirato"];
-var LBL_STATO = { nuovo:"NUOVO", confermato:"CONFERMATO", in_preparazione:"IN PREP.", pronto:"PRONTO", ritirato:"RITIRATO", confermata:"CONFERMATA", arrivata:"ARRIVATA", no_show:"NO SHOW" };
+var LBL_STATO = { nuovo:"NUOVO", confermato:"CONFERMATO", in_preparazione:"IN PREP.", pronto:"PRONTO", ritirato:"RITIRATO" };
 function rOrdini(){
-  var h = '<div class="pg-title">📦 Ordini</div><div class="pg-sub">Tocca lo stato per avanzare · nuovo → confermato → in prep. → pronto → ritirato</div>';
-  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoOrdine()">+ Nuovo ordine</button><div class="filt">';
-  ["tutti","nuovo","in_preparazione","pronto","ritirato"].forEach(function(f){
+  var h = '<div class="pg-title">📦 Ordini</div><div class="pg-sub">Tocca lo stato per avanzare · tocca la riga per il dettaglio · 🏪 banco · 🌐 online dal bot torte</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoOrdine()">+ Nuovo ordine</button>';
+  h += '<button class="btn-add" style="background:var(--card);color:var(--brand-deep);border:1px solid var(--line)" onclick="checkOrdiniOnline(true)">🔄 Ordini online</button>';
+  h += '<button class="btn-add" style="background:var(--card);color:var(--brand-deep);border:1px solid var(--line)" onclick="nav(\'clienti\')">👥 Clienti</button>';
+  h += '<div class="filt">';
+  ["tutti","nuovo","confermato","in_preparazione","pronto","ritirato"].forEach(function(f){
     h += '<span class="f-chip' + (filtroOrdini === f ? " on" : "") + '" onclick="filtroOrdini=\'' + f + '\';render()">' + (f === "tutti" ? "Tutti" : LBL_STATO[f]) + '</span>';
   });
   h += '</div></div>';
   var ord = DB.get("ordini").filter(function(o){ return filtroOrdini === "tutti" || o.stato === filtroOrdini; });
   if (!ord.length) return h + '<div class="empty"><div class="e-ico">📦</div>Nessun ordine qui.<br>Premi "+ Nuovo ordine" per iniziare.</div>';
   ord.forEach(function(o){
-    h += '<div class="row"><div class="row-main"><div class="row-t">' + o.numero + ' · ' + o.cliente + '</div>';
-    h += '<div class="row-s">' + o.righe + ' · ritiro ' + dataIT(o.data) + ' ' + (o.ora||"") + '</div></div>';
+    var canale = o.canale === "online" ? "\ud83c\udf10" : "\ud83c\udfea";
+    h += '<div class="row" onclick="mDettaglioOrdine(\'' + o.id + '\')"><div class="row-main"><div class="row-t">' + canale + ' ' + esc(o.numero) + ' · ' + esc(o.cliente) + (o.pagato ? ' <span class="tag-pill" style="background:var(--success-tint);color:var(--success)">PAGATO</span>' : '') + '</div>';
+    h += '<div class="row-s">' + esc(o.righe) + ' · ritiro ' + dataIT(o.data) + ' ' + esc(o.ora||"") + '</div></div>';
     h += '<span class="row-price">' + eur(o.totale) + '</span>';
     if (o.tel) h += '<button class="st st-confermata" onclick="event.stopPropagation();waOrdine(\'' + o.id + '\')" title="WhatsApp">\ud83d\udcac</button>';
-    h += '<button class="st st-' + o.stato + '" onclick="avanzaOrdine(\'' + o.id + '\')">' + LBL_STATO[o.stato] + '</button></div>';
+    h += '<button class="st st-' + o.stato + '" onclick="event.stopPropagation();avanzaOrdine(\'' + o.id + '\')">' + LBL_STATO[o.stato] + '</button></div>';
   });
   return h;
 }
@@ -583,28 +735,66 @@ function avanzaOrdine(id){
   }
   render();
 }
-function mNuovoOrdine(){
+function setStatoOrdine(id, stato){
+  DB.update("ordini", id, { stato:stato });
+  closeModal(); render();
+}
+function mDettaglioOrdine(id){
+  var o = DB.get("ordini").find(function(x){ return x.id === id; });
+  if (!o) return;
+  var canale = o.canale === "online" ? "\ud83c\udf10 Online (bot torte)" : "\ud83c\udfea Banco";
+  var stChips = CICLO_ORDINE.map(function(s){
+    var on = o.stato === s;
+    return '<button class="st st-' + s + '" style="' + (on ? 'outline:2px solid var(--ink);' : 'opacity:.65;') + 'padding:8px 12px" onclick="setStatoOrdine(\'' + o.id + '\',\'' + s + '\')">' + LBL_STATO[s] + '</button>';
+  }).join(" ");
+  openModal('<div class="m-title">' + esc(o.numero) + ' · ' + esc(o.cliente) + '</div>' +
+    '<div class="pg-sub" style="margin-bottom:10px">' + canale + (o.pagato ? ' · ✅ gia\' pagato online' : '') + '</div>' +
+    '<div style="font-size:14px;line-height:1.8">' +
+    '<b>Cosa:</b> ' + esc(o.righe) + '<br>' +
+    '<b>Ritiro:</b> ' + dataIT(o.data) + (o.ora ? ' alle ' + esc(o.ora) : '') + '<br>' +
+    '<b>Telefono:</b> ' + (o.tel ? esc(o.tel) : '—') + '<br>' +
+    '<b>Totale:</b> ' + eur(o.totale) + '</div>' +
+    '<span class="ob-label">Stato ordine</span><div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:6px">' + stChips + '</div>' +
+    (o.tel ? '<button class="m-save" style="background:#25D366" onclick="waOrdine(\'' + o.id + '\')">\ud83d\udcac Avvisa su WhatsApp</button>' : '') +
+    '<button class="m-save" style="background:var(--card);color:var(--brand-deep);border:1.5px solid var(--line)" onclick="mModificaOrdine(\'' + o.id + '\')">✎ Modifica ordine</button>' +
+    '<div style="text-align:center;margin-top:14px"><a href="#" onclick="delOrdine(\'' + o.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina ordine</a></div>');
+}
+function delOrdine(id){
+  if (!confirm("Elimino questo ordine?")) return;
+  DB.remove("ordini", id); closeModal(); render();
+}
+function mNuovoOrdine(){ mFormOrdine(null); }
+function mModificaOrdine(id){ mFormOrdine(id); }
+function mFormOrdine(id){
+  var o = id ? DB.get("ordini").find(function(x){ return x.id === id; }) : null;
   var t = todayStr();
-  openModal('<div class="m-title">Nuovo ordine</div>' +
-    '<span class="ob-label">Cliente</span><input class="ob-input" id="no-cli" placeholder="Nome cliente">' +
-    '<span class="ob-label">Telefono</span><input class="ob-input" id="no-tel" placeholder="333 1234567">' +
-    '<span class="ob-label">Cosa ordina</span><input class="ob-input" id="no-righe" placeholder="Es. Torta 1kg + 12 bignè">' +
-    '<div class="m-2col"><div><span class="ob-label">Data ritiro</span><input class="ob-input" type="date" id="no-data" value="' + t + '"></div>' +
-    '<div><span class="ob-label">Ora</span><input class="ob-input" type="time" id="no-ora" value="17:00"></div></div>' +
-    '<span class="ob-label">Totale €</span><input class="ob-input" type="number" step="0.5" id="no-tot" placeholder="0.00">' +
-    '<button class="m-save" onclick="salvaOrdine()">✓ Crea ordine</button>');
+  openModal('<div class="m-title">' + (o ? "Modifica ordine " + esc(o.numero) : "Nuovo ordine") + '</div>' +
+    '<span class="ob-label">Cliente</span><input class="ob-input" id="no-cli" value="' + (o ? escA(o.cliente) : "") + '" placeholder="Nome cliente">' +
+    '<span class="ob-label">Telefono</span><input class="ob-input" id="no-tel" value="' + (o ? escA(o.tel||"") : "") + '" placeholder="333 1234567">' +
+    '<span class="ob-label">Cosa ordina</span><input class="ob-input" id="no-righe" value="' + (o ? escA(o.righe) : "") + '" placeholder="Es. Torta 1kg + 12 bigne\'">' +
+    '<div class="m-2col"><div><span class="ob-label">Data ritiro</span><input class="ob-input" type="date" id="no-data" value="' + (o ? o.data : t) + '"></div>' +
+    '<div><span class="ob-label">Ora</span><input class="ob-input" type="time" id="no-ora" value="' + (o ? (o.ora||"17:00") : "17:00") + '"></div></div>' +
+    '<span class="ob-label">Totale €</span><input class="ob-input" type="number" step="0.5" id="no-tot" value="' + (o ? o.totale : "") + '" placeholder="0.00">' +
+    '<input type="hidden" id="no-id" value="' + (o ? o.id : "") + '">' +
+    '<button class="m-save" onclick="salvaOrdine()">✓ ' + (o ? "Salva modifiche" : "Crea ordine") + '</button>');
 }
 function salvaOrdine(){
   var cli = G("no-cli").value.trim();
   if (!cli) { alert("Inserisci il nome del cliente."); return; }
-  var num = "ORD-" + String(Math.floor(Math.random()*9000) + 1000);
-  DB.add("ordini", { numero:num, cliente:cli, tel:G("no-tel").value.trim(), righe:G("no-righe").value.trim() || "—",
-    data:G("no-data").value, ora:G("no-ora").value, stato:"nuovo", totale:parseFloat(G("no-tot").value) || 0 });
-  autoCliente(cli, G("no-tel").value.trim());
-  DB.add("notifiche", { ico:"📦", txt:"Nuovo ordine " + num + " · " + cli, t:"ora", letta:false });
+  var oid = G("no-id").value;
+  var dati = { cliente:cli, tel:G("no-tel").value.trim(), righe:G("no-righe").value.trim() || "—",
+    data:G("no-data").value, ora:G("no-ora").value, totale:parseFloat(G("no-tot").value) || 0 };
+  if (oid) {
+    DB.update("ordini", oid, dati);
+  } else {
+    dati.numero = "ORD-" + String(Math.floor(Math.random()*9000) + 1000);
+    dati.stato = "nuovo"; dati.canale = "banco";
+    DB.add("ordini", dati);
+    DB.add("notifiche", { ico:"📦", txt:"Nuovo ordine " + dati.numero + " · " + cli, t:"ora", letta:false });
+  }
+  autoCliente(cli, dati.tel);
   closeModal(); filtroOrdini = "tutti"; nav("ordini");
 }
-
 // ═══ TURNI (condivisi con app turni-ferie · stesso doc Firestore) ═══
 var turnoModal = null;
 function oreTurno(x){
@@ -680,25 +870,57 @@ function setTurnoCustom(){
   setTurno({ inizio:i, fine:f });
 }
 
-// ═══ CLIENTI (CRM) ═══
+
+// ═══ CLIENTI (CRM · si popola da solo con gli ordini) ═══
 function autoCliente(nome, tel){
   if (!nome) return;
   var esiste = DB.get("clienti").some(function(c){ return c.nome.toLowerCase() === nome.toLowerCase() || (tel && c.tel === tel); });
   if (!esiste) DB.add("clienti", { nome:nome, tel:tel || "", tags:[] });
 }
 function rClienti(){
-  var h = '<div class="pg-title">👥 Clienti</div><div class="pg-sub">CRM unificato · si popola da solo con ordini e prenotazioni</div>';
-  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoCliente()">+ Nuovo cliente</button></div>';
+  var h = '<div class="pg-title">👥 Clienti</div><div class="pg-sub">CRM unificato · si popola da solo con ordini al banco e online · tocca un cliente per lo storico</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoCliente()">+ Nuovo cliente</button>';
+  h += '<button class="btn-add" style="background:var(--card);color:var(--brand-deep);border:1px solid var(--line)" onclick="nav(\'ordini\')">← Torna a Ordini</button></div>';
   var cl = DB.get("clienti");
   if (!cl.length) return h + '<div class="empty"><div class="e-ico">👥</div>Nessun cliente ancora.</div>';
-  h += '<div class="tblwrap"><table class="tbl"><tr><th>Nome</th><th>Telefono</th><th>Tag</th></tr>';
+  h += '<div class="tblwrap"><table class="tbl"><tr><th>Nome</th><th>Telefono</th><th>Ordini</th><th>Tag</th></tr>';
   cl.forEach(function(c){
-    h += '<tr><td><b>' + c.nome + '</b></td><td style="font-family:var(--font-m);font-size:12px">' + (c.tel||"—") + '</td><td>';
-    (c.tags||[]).forEach(function(t){ h += '<span class="tag-pill">' + t + '</span>'; });
+    var nOrd = DB.get("ordini").filter(function(o){ return o.cliente.toLowerCase() === c.nome.toLowerCase(); }).length;
+    h += '<tr style="cursor:pointer" onclick="mCliente(\'' + c.id + '\')"><td><b>' + esc(c.nome) + '</b></td><td style="font-family:var(--font-m);font-size:12px">' + esc(c.tel||"—") + '</td><td style="font-family:var(--font-m);font-size:12px">' + nOrd + '</td><td>';
+    (c.tags||[]).forEach(function(t){ h += '<span class="tag-pill">' + esc(t) + '</span>'; });
     h += '</td></tr>';
   });
   h += '</table></div>';
   return h;
+}
+function mCliente(id){
+  var c = DB.get("clienti").find(function(x){ return x.id === id; });
+  if (!c) return;
+  var ordini = DB.get("ordini").filter(function(o){ return o.cliente.toLowerCase() === c.nome.toLowerCase(); });
+  var tot = ordini.reduce(function(s, o){ return s + (o.totale||0); }, 0);
+  var lst = ordini.slice(0, 8).map(function(o){
+    return '<div class="ntf"><span>' + (o.canale === "online" ? "\ud83c\udf10" : "\ud83c\udfea") + '</span><span>' + esc(o.numero) + ' · ' + esc(o.righe) + '</span><span class="ntf-time">' + dataIT(o.data) + '</span></div>';
+  }).join("");
+  openModal('<div class="m-title">' + esc(c.nome) + '</div>' +
+    '<div class="pg-sub" style="margin-bottom:10px">' + ordini.length + ' ordini · totale ' + eur(tot) + '</div>' +
+    (lst || '<div class="k-det">Nessun ordine registrato.</div>') +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="ec-nome" value="' + escA(c.nome) + '">' +
+    '<span class="ob-label">Telefono</span><input class="ob-input" id="ec-tel" value="' + escA(c.tel||"") + '">' +
+    '<span class="ob-label">Tag (separati da virgola)</span><input class="ob-input" id="ec-tags" value="' + escA((c.tags||[]).join(", ")) + '">' +
+    '<button class="m-save" onclick="salvaModCliente(\'' + c.id + '\')">✓ Salva</button>' +
+    (c.tel ? '<button class="m-save" style="background:#25D366" onclick="window.open(waLink(\'' + escJS(c.tel) + '\',\'Ciao ' + escJS(c.nome) + '!\'),\'_blank\')">\ud83d\udcac Scrivi su WhatsApp</button>' : '') +
+    '<div style="text-align:center;margin-top:14px"><a href="#" onclick="delCliente(\'' + c.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina cliente</a></div>');
+}
+function salvaModCliente(id){
+  var nome = G("ec-nome").value.trim();
+  if (!nome) { alert("Inserisci il nome."); return; }
+  var tags = G("ec-tags").value.split(",").map(function(t){ return t.trim(); }).filter(Boolean);
+  DB.update("clienti", id, { nome:nome, tel:G("ec-tel").value.trim(), tags:tags });
+  closeModal(); render();
+}
+function delCliente(id){
+  if (!confirm("Elimino questo cliente dal CRM? (Gli ordini restano)")) return;
+  DB.remove("clienti", id); closeModal(); render();
 }
 function mNuovoCliente(){
   openModal('<div class="m-title">Nuovo cliente</div>' +
@@ -715,23 +937,112 @@ function salvaCliente(){
   closeModal(); nav("clienti");
 }
 
-// ═══ SHOP ═══
+// ═══ SHOP (prodotti da banco + SPEDIZIONI a fasce di peso) ═══
+var CART = {};
 function rShop(){
-  var h = '<div class="pg-title">🛍️ Shop</div><div class="pg-sub">I tuoi articoli in vetrina · tocca un articolo per modificarlo, il badge per la disponibilita\'</div>';
-  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoArticolo()">+ Nuovo articolo</button></div>';
+  var h = '<div class="pg-title">🛍️ Shop</div><div class="pg-sub">Prodotti da banco con formati, varianti, offerte e disponibilita\' · spedizioni con calcolo costi a fasce di peso</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovoArticolo()">+ Nuovo articolo</button>';
+  h += '<button class="btn-add" style="background:var(--gold);color:var(--ink)" onclick="mCalcolaSped()">🧮 Calcola spedizione</button></div>';
   var arts = DB.get("shop_articoli");
-  if (!arts.length) return h + '<div class="empty"><div class="e-ico">🛍️</div>Nessun articolo. Aggiungi il primo!</div>';
+  if (!arts.length) h += '<div class="empty"><div class="e-ico">🛍️</div>Nessun articolo. Aggiungi il primo!</div>';
   arts.forEach(function(a){
     var det = [];
     if (a.taglie && a.taglie.length) det.push("Formati: " + a.taglie.join("/"));
     if (a.colori && a.colori.length) det.push("Varianti: " + a.colori.join(", "));
     if (a.off) det.push("Offerta " + a.off);
-    h += '<div class="row" onclick="mArticolo(\'' + a.id + '\')"><div class="row-main"><div class="row-t">' + a.nome + ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">✎</span></div>';
-    h += '<div class="row-s">' + (det.join(" · ") || "Articolo semplice · tocca per modificare") + '</div></div>';
+    det.push(a.sped ? "📦 spedibile · " + (a.pesoKg||0) + " kg" : "solo banco");
+    h += '<div class="row" onclick="mArticolo(\'' + a.id + '\')"><div class="row-main"><div class="row-t">' + esc(a.nome) + ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">✎</span></div>';
+    h += '<div class="row-s">' + esc(det.join(" · ")) + '</div></div>';
     h += '<span class="row-price">' + eur(a.prezzo) + '</span>';
     h += '<button class="st ' + (a.disp ? "st-pronto" : "st-nuovo") + '" onclick="event.stopPropagation();toggleDisp(\'' + a.id + '\')">' + (a.disp ? "DISPONIBILE" : "ESAURITO") + '</button></div>';
   });
+  // ── Configurazione spedizioni ──
+  var sp = DB.load().spedizioni;
+  h += '<div class="kcard" style="margin-top:16px"><div class="k-top">📦 Tariffe spedizione (fasce di peso)</div>';
+  h += '<div id="sped-fasce">';
+  sp.fasce.forEach(function(f, i){
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">' +
+      '<span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">fino a</span>' +
+      '<input type="number" step="0.5" min="0" value="' + f.maxKg + '" id="sf-kg-' + i + '" style="width:70px;border:1.5px solid var(--line);border-radius:8px;padding:7px;font-family:var(--font-m);font-size:13px;text-align:center">' +
+      '<span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">kg →</span>' +
+      '<input type="number" step="0.1" min="0" value="' + f.costo + '" id="sf-eu-' + i + '" style="width:80px;border:1.5px solid var(--line);border-radius:8px;padding:7px;font-family:var(--font-m);font-size:13px;text-align:center">' +
+      '<span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">€</span>' +
+      '<button class="st st-nuovo" onclick="rmFascia(' + i + ')">✕</button></div>';
+  });
+  h += '</div><button class="btn-add" style="background:var(--card);color:var(--brand-deep);border:1px solid var(--line);margin-top:6px" onclick="addFascia()">+ Fascia</button>';
+  h += '<div class="m-2col" style="margin-top:12px"><div><span class="ob-label">€/kg oltre l\'ultima fascia</span><input class="ob-input" type="number" step="0.1" id="sp-extra" value="' + sp.extraKg + '"></div>' +
+    '<div><span class="ob-label">Contributo imballo €</span><input class="ob-input" type="number" step="0.1" id="sp-imballo" value="' + sp.imballo + '"></div></div>';
+  h += '<span class="ob-label">Spedizione gratis sopra € (0 = mai)</span><input class="ob-input" type="number" step="1" id="sp-gratis" value="' + sp.sogliaGratis + '">';
+  h += '<button class="set-save" onclick="salvaSpedizioni()">✓ Salva tariffe</button></div>';
   return h;
+}
+function addFascia(){ salvaSpedizioni(true); DB.load().spedizioni.fasce.push({ maxKg:30, costo:19.9 }); DB.save(); render(); }
+function rmFascia(i){ salvaSpedizioni(true); DB.load().spedizioni.fasce.splice(i, 1); DB.save(); render(); }
+function salvaSpedizioni(silenzioso){
+  var sp = DB.load().spedizioni;
+  sp.fasce.forEach(function(f, i){
+    var kg = G("sf-kg-" + i), eu = G("sf-eu-" + i);
+    if (kg) f.maxKg = parseFloat(kg.value) || 0;
+    if (eu) f.costo = parseFloat(eu.value) || 0;
+  });
+  sp.fasce.sort(function(a, b){ return a.maxKg - b.maxKg; });
+  if (G("sp-extra")) sp.extraKg = parseFloat(G("sp-extra").value) || 0;
+  if (G("sp-imballo")) sp.imballo = parseFloat(G("sp-imballo").value) || 0;
+  if (G("sp-gratis")) sp.sogliaGratis = parseFloat(G("sp-gratis").value) || 0;
+  DB.save();
+  if (!silenzioso) { alert("✓ Tariffe salvate"); render(); }
+}
+function calcSpedizione(pesoKg, subtot){
+  var sp = DB.load().spedizioni;
+  if (sp.sogliaGratis > 0 && subtot >= sp.sogliaGratis) return { costo:0, gratis:true, label:"GRATIS (sopra " + eur(sp.sogliaGratis) + ")" };
+  if (!sp.fasce.length) return { costo:sp.imballo, gratis:false, label:"solo imballo" };
+  var f = sp.fasce.find(function(x){ return pesoKg <= x.maxKg; });
+  var base;
+  if (f) { base = f.costo; }
+  else {
+    var last = sp.fasce[sp.fasce.length - 1];
+    base = last.costo + Math.ceil(pesoKg - last.maxKg) * sp.extraKg;
+  }
+  return { costo: base + sp.imballo, gratis:false, label:"fascia " + pesoKg.toFixed(1) + " kg + imballo" };
+}
+function mCalcolaSped(){
+  CART = {};
+  renderCalcSped();
+}
+function renderCalcSped(){
+  var spedibili = DB.get("shop_articoli").filter(function(a){ return a.sped && a.disp; });
+  if (!spedibili.length) { alert("Nessun articolo spedibile disponibile. Attiva '📦 spedibile' e il peso sugli articoli."); return; }
+  var rows = spedibili.map(function(a){
+    var q = CART[a.id] || 0;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--paper);font-size:13px">' +
+      '<span style="flex:1"><b>' + esc(a.nome) + '</b><br><span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">' + eur(a.prezzo) + ' · ' + (a.pesoKg||0) + ' kg</span></span>' +
+      '<button class="st st-ritirato" onclick="cartQty(\'' + a.id + '\',-1)">−</button>' +
+      '<span style="font-family:var(--font-m);font-weight:700;min-width:22px;text-align:center">' + q + '</span>' +
+      '<button class="st st-pronto" onclick="cartQty(\'' + a.id + '\',1)">+</button></div>';
+  }).join("");
+  var peso = 0, subtot = 0;
+  spedibili.forEach(function(a){ var q = CART[a.id] || 0; peso += q * (a.pesoKg||0); subtot += q * a.prezzo; });
+  var s = calcSpedizione(peso, subtot);
+  var riep = '<div class="kcard" style="margin-top:12px;background:var(--brand-tint);border-color:var(--brand)">' +
+    '<div style="font-size:13px;line-height:1.9"><b>Subtotale:</b> ' + eur(subtot) + '<br><b>Peso:</b> ' + peso.toFixed(2) + ' kg<br>' +
+    '<b>Spedizione:</b> ' + (s.gratis ? '<b style="color:var(--success)">GRATIS</b>' : eur(s.costo)) + ' <span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">(' + s.label + ')</span><br>' +
+    '<b style="font-size:16px">Totale: ' + eur(subtot + s.costo) + '</b></div></div>';
+  var testo = "Preventivo spedizione " + (ATT ? ATT.nome : "") + "\n";
+  spedibili.forEach(function(a){ var q = CART[a.id] || 0; if (q) testo += "- " + q + " x " + a.nome + " = " + eur(q*a.prezzo) + "\n"; });
+  testo += "Spedizione: " + (s.gratis ? "GRATIS" : eur(s.costo)) + "\nTotale: " + eur(subtot + s.costo);
+  openModal('<div class="m-title">🧮 Calcola spedizione</div>' +
+    '<div class="pg-sub" style="margin-bottom:8px">Componi il pacco: il costo si aggiorna in automatico con le tue fasce di peso</div>' +
+    rows + riep +
+    '<button class="m-save" onclick="copiaTesto(this, \'' + encodeURIComponent(testo) + '\')">📋 Copia preventivo per il cliente</button>');
+}
+function cartQty(id, dir){
+  CART[id] = Math.max(0, (CART[id] || 0) + dir);
+  renderCalcSped();
+}
+function copiaTesto(btn, enc){
+  var txt = decodeURIComponent(enc);
+  if (navigator.clipboard) { navigator.clipboard.writeText(txt); btn.textContent = "✓ Copiato!"; }
+  else { alert(txt); }
 }
 function toggleDisp(id){
   var a = DB.get("shop_articoli").find(function(x){ return x.id === id; });
@@ -742,13 +1053,15 @@ function delArticolo(id){ if (confirm("Elimino questo articolo?")) { DB.remove("
 function mArticolo(id){
   var a = id ? DB.get("shop_articoli").find(function(x){ return x.id === id; }) : null;
   openModal('<div class="m-title">' + (a ? "Modifica articolo" : "Nuovo articolo") + '</div>' +
-    '<span class="ob-label">Nome</span><input class="ob-input" id="na-nome" value="' + (a ? a.nome.replace(/"/g,'&quot;') : "") + '" placeholder="Es. Panettone artigianale">' +
-    '<span class="ob-label">Prezzo \u20ac</span><input class="ob-input" type="number" step="0.5" id="na-prezzo" value="' + (a ? a.prezzo : "") + '" placeholder="0.00">' +
-    '<span class="ob-label">Formati (virgola, vuoto se non serve)</span><input class="ob-input" id="na-taglie" value="' + (a ? a.taglie.join(", ") : "") + '" placeholder="750g, 1kg">' +
-    '<span class="ob-label">Varianti (virgola, vuoto se non serve)</span><input class="ob-input" id="na-colori" value="' + (a ? a.colori.join(", ") : "") + '" placeholder="Classico, Cioccolato">' +
-    '<span class="ob-label">Offerta (es. 3x2, vuoto se nessuna)</span><input class="ob-input" id="na-off" value="' + (a ? a.off : "") + '" placeholder="3x2">' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="na-nome" value="' + (a ? escA(a.nome) : "") + '" placeholder="Es. Panettone artigianale">' +
+    '<span class="ob-label">Prezzo €</span><input class="ob-input" type="number" step="0.5" id="na-prezzo" value="' + (a ? a.prezzo : "") + '" placeholder="0.00">' +
+    '<span class="ob-label">Formati (virgola, vuoto se non serve)</span><input class="ob-input" id="na-taglie" value="' + (a ? escA((a.taglie||[]).join(", ")) : "") + '" placeholder="750g, 1kg">' +
+    '<span class="ob-label">Varianti (virgola, vuoto se non serve)</span><input class="ob-input" id="na-colori" value="' + (a ? escA((a.colori||[]).join(", ")) : "") + '" placeholder="Classico, Cioccolato">' +
+    '<span class="ob-label">Offerta (es. 3x2, vuoto se nessuna)</span><input class="ob-input" id="na-off" value="' + (a ? escA(a.off||"") : "") + '" placeholder="3x2">' +
+    '<div class="m-2col"><div><span class="ob-label">Peso kg (per la spedizione)</span><input class="ob-input" type="number" step="0.05" id="na-peso" value="' + (a ? (a.pesoKg||"") : "") + '" placeholder="1.2"></div>' +
+    '<div><span class="ob-label">Spedibile?</span><select class="ob-select" id="na-sped"><option value="1"' + (a && a.sped ? " selected" : "") + '>Si\', si spedisce</option><option value="0"' + (a && !a.sped ? " selected" : "") + '>No, solo banco</option></select></div></div>' +
     '<input type="hidden" id="na-id" value="' + (a ? a.id : "") + '">' +
-    '<button class="m-save" onclick="salvaArticolo()">\u2713 ' + (a ? "Salva modifiche" : "Aggiungi articolo") + '</button>' +
+    '<button class="m-save" onclick="salvaArticolo()">✓ ' + (a ? "Salva modifiche" : "Aggiungi articolo") + '</button>' +
     (a ? '<div style="text-align:center;margin-top:14px"><a href="#" onclick="delArticolo(\'' + a.id + '\');return false" style="font-family:var(--font-m);font-size:11px;color:var(--danger);text-decoration:underline">Elimina questo articolo</a></div>' : ""));
 }
 function mNuovoArticolo(){ mArticolo(null); }
@@ -759,42 +1072,165 @@ function salvaArticolo(){
   var aid = G("na-id").value;
   var dati = { nome:nome, prezzo:parseFloat(G("na-prezzo").value) || 0,
     taglie:splitCSV(G("na-taglie").value), colori:splitCSV(G("na-colori").value),
-    off:G("na-off").value.trim() };
+    off:G("na-off").value.trim(), pesoKg:parseFloat(G("na-peso").value) || 0, sped:G("na-sped").value === "1" };
   if (aid) DB.update("shop_articoli", aid, dati);
   else { dati.disp = true; DB.add("shop_articoli", dati); }
   closeModal(); nav("shop");
 }
 
-// ═══ ALLERGENI ═══
+// ═══ ALLERGENI (rilevamento automatico 14 UE + QUID + etichetta 1169/2011 + import) ═══
 var ALLERGENI_UE = ["Glutine","Crostacei","Uova","Pesce","Arachidi","Soia","Latte","Frutta a guscio","Sedano","Senape","Sesamo","Solfiti","Lupini","Molluschi"];
+var ALG_KW = [
+  { nome:"Glutine", kw:["farina","grano","frumento","farro","kamut","orzo","segale","avena","semola","amido di frumento","malto","brioche","pan di spagna","savoiardi","biscotti","pasta sfoglia","pasta frolla","couscous","glutine","seitan"] },
+  { nome:"Crostacei", kw:["gambero","gamberi","aragosta","granchio","astice","scampo","scampi","crostacei"] },
+  { nome:"Uova", kw:["uovo","uova","tuorlo","tuorli","albume","albumi","lecitina di uovo","ovoprodotti","meringa","maionese"] },
+  { nome:"Pesce", kw:["pesce","merluzzo","salmone","tonno","acciuga","acciughe","sardina","colla di pesce"] },
+  { nome:"Arachidi", kw:["arachide","arachidi","burro di arachidi","olio di arachidi"] },
+  { nome:"Soia", kw:["soia","lecitina di soia","tofu","salsa di soia","edamame"] },
+  { nome:"Latte", kw:["latte","panna","burro","formaggio","mozzarella","ricotta","yogurt","lattosio","caseina","siero di latte","mascarpone","crema di latte","panna fresca","cioccolato al latte","cioccolato bianco","besciamella"] },
+  { nome:"Frutta a guscio", kw:["noce","noci","nocciola","nocciole","mandorla","mandorle","pistacchio","pistacchi","anacardo","anacardi","pecan","pinoli","macadamia","granella di nocciole","pasta di nocciole","pasta di pistacchio","frangipane","gianduia","marzapane","amaretti"] },
+  { nome:"Sedano", kw:["sedano","sedano rapa"] },
+  { nome:"Senape", kw:["senape","mostarda"] },
+  { nome:"Sesamo", kw:["sesamo","semi di sesamo","tahini","tahina"] },
+  { nome:"Solfiti", kw:["solfito","solfiti","anidride solforosa","e220","e221","e222","e223","e224","vino","aceto di vino","marsala","rum","frutta candita","canditi","uvetta"] },
+  { nome:"Lupini", kw:["lupino","lupini","farina di lupino"] },
+  { nome:"Molluschi", kw:["mollusco","molluschi","cozza","cozze","vongola","vongole","calamaro","calamari","polpo","seppia"] }
+];
+function detectAllergeni(ing){
+  var low = " " + (ing || "").toLowerCase() + " ";
+  var out = [];
+  ALG_KW.forEach(function(a){
+    var trovato = a.kw.some(function(k){
+      var re = new RegExp("(^|[^a-zàèéìòù])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-zàèéìòù])", "i");
+      return re.test(low);
+    });
+    if (trovato) out.push(a.nome);
+  });
+  return out;
+}
+// Evidenzia (grassetto + MAIUSCOLO) le parole allergeniche negli ingredienti, come richiesto dal Reg. UE 1169/2011
+function evidenziaAllergeni(ing){
+  var kws = [];
+  ALG_KW.forEach(function(a){ a.kw.forEach(function(k){ kws.push(k); }); });
+  kws.sort(function(a, b){ return b.length - a.length; });
+  var src = String(ing || ""), low = src.toLowerCase(), out = "", i = 0;
+  function isL(ch){ return /[a-zàèéìòù]/i.test(ch || ""); }
+  while (i < src.length) {
+    var matched = null;
+    if (!isL(src[i-1])) {
+      for (var k = 0; k < kws.length; k++) {
+        var w = kws[k];
+        if (low.substr(i, w.length) === w && !isL(src[i + w.length])) { matched = w; break; }
+      }
+    }
+    if (matched) {
+      out += "<b>" + esc(src.substr(i, matched.length).toUpperCase()) + "</b>";
+      i += matched.length;
+    } else {
+      out += esc(src[i]);
+      i++;
+    }
+  }
+  return out;
+}
+function catRicette(){
+  var cats = [];
+  DB.get("ricette").forEach(function(r){ var c = r.cat || "Senza categoria"; if (cats.indexOf(c) < 0) cats.push(c); });
+  return cats.sort();
+}
 function rAllergeni(){
-  var h = '<div class="pg-title">\u26a0\ufe0f Allergeni</div><div class="pg-sub">Ricette e allergeni \u00b7 tocca una ricetta per generare l\'etichetta a norma UE 1169/2011</div>';
-  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovaRicetta()">+ Nuova ricetta</button></div>';
-  var ric = DB.get("ricette");
-  if (!ric.length) return h + '<div class="empty"><div class="e-ico">\u26a0\ufe0f</div>Nessuna ricetta ancora.</div>';
+  var h = '<div class="pg-title">⚠️ Allergeni</div><div class="pg-sub">Rilevamento automatico dei 14 allergeni UE dagli ingredienti · QUID · etichetta a norma Reg. UE 1169/2011</div>';
+  h += '<div class="bar-actions"><button class="btn-add" onclick="mNuovaRicetta()">+ Nuova ricetta</button>';
+  h += '<button class="btn-add" style="background:var(--gold);color:var(--ink)" onclick="mImportRicette()">⬇ Importa da app Allergeni</button>';
+  h += '<div class="filt">';
+  ["Tutte"].concat(catRicette()).forEach(function(c){
+    h += '<span class="f-chip' + (filtroCatAlg === c ? " on" : "") + '" onclick="filtroCatAlg=\'' + escJS(c) + '\';render()">' + esc(c) + '</span>';
+  });
+  h += '</div></div>';
+  var ric = DB.get("ricette").filter(function(r){ return filtroCatAlg === "Tutte" || (r.cat || "Senza categoria") === filtroCatAlg; });
+  if (!ric.length) return h + '<div class="empty"><div class="e-ico">⚠️</div>Nessuna ricetta qui.<br>Aggiungine una o importa la lista dall\'app Allergeni.</div>';
   ric.forEach(function(r){
-    h += '<div class="row" onclick="mEtichetta(\'' + r.id + '\')"><div class="row-main"><div class="row-t">' + r.nome + '</div>';
-    h += '<div class="row-s">' + (r.allergeni.length ? r.allergeni.join(" \u00b7 ") : "Nessun allergene") + '</div></div>';
+    h += '<div class="row" onclick="mEtichetta(\'' + r.id + '\')"><div class="row-main"><div class="row-t">' + esc(r.nome) + (r.cat ? ' <span class="tag-pill">' + esc(r.cat) + '</span>' : '') + '</div>';
+    h += '<div class="row-s">' + (r.allergeni.length ? esc(r.allergeni.join(" · ")) : "Nessun allergene") + '</div></div>';
     h += '<span class="st st-confermato">\ud83c\udff7\ufe0f ETICHETTA</span></div>';
   });
   return h;
 }
+function mImportRicette(){
+  openModal('<div class="m-title">⬇ Importa dall\'app Fagotti Allergeni</div>' +
+    '<div style="font-size:13px;line-height:1.8;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px">' +
+    '<b>Come estrarre il JSON dal browser:</b><br>' +
+    '1. Apri l\'app Allergeni nel browser dove la usi di solito<br>' +
+    '2. Premi <b>F12</b> (o tasto destro → Ispeziona) e vai sulla scheda <b>Console</b><br>' +
+    '3. Incolla questo comando e premi Invio:<br>' +
+    '<code style="font-family:var(--font-m);font-size:11px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 6px;display:block;margin:6px 0;word-break:break-all">copy(localStorage.getItem("fagotti_etichette_prodotti_v1"))</code>' +
+    '4. Il JSON e\' ora negli appunti: incollalo qui sotto (Ctrl+V)<br>' +
+    '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink-soft)">Se il comando restituisce null, prova senza copy(): localStorage.getItem("fagotti_etichette_prodotti_v1") e copia a mano il risultato (senza le virgolette esterne).</span></div>' +
+    '<span class="ob-label">Incolla qui il JSON</span><textarea class="ob-input" id="imp-json" rows="6" placeholder=\'[{"nome":"Cornetto vuoto","cat":"Cornetteria","ing":"farina, burro, uova..."}]\'></textarea>' +
+    '<button class="m-save" onclick="importaRicette()">✓ Importa ricette</button>');
+}
+function importaRicette(){
+  var raw = G("imp-json").value.trim();
+  if (!raw) { alert("Incolla prima il JSON."); return; }
+  // tollera JSON incollato con virgolette esterne o doppio-encoded
+  if (raw.charAt(0) === '"' && raw.charAt(raw.length-1) === '"') {
+    try { raw = JSON.parse(raw); } catch(e) {}
+  }
+  var arr;
+  try { arr = JSON.parse(raw); } catch(e) { alert("JSON non valido: " + e.message); return; }
+  if (!Array.isArray(arr)) {
+    if (arr && Array.isArray(arr.prodotti)) arr = arr.prodotti;
+    else { alert("Formato non riconosciuto: mi aspetto una lista di prodotti."); return; }
+  }
+  var nuove = 0, aggiornate = 0;
+  arr.forEach(function(p){
+    if (!p || typeof p !== "object") return;
+    var nome = (p.nome || p.name || "").trim();
+    var ing = (p.ing || p.ingredienti || p.ingredients || "").trim();
+    if (!nome) return;
+    var cat = (p.cat || p.categoria || "").trim();
+    var alg = Array.isArray(p.allergeni) && p.allergeni.length && typeof p.allergeni[0] === "string" && ALLERGENI_UE.indexOf(p.allergeni[0]) >= 0
+      ? p.allergeni : detectAllergeni(ing);
+    var esistente = DB.get("ricette").find(function(r){ return r.nome.toLowerCase() === nome.toLowerCase(); });
+    if (esistente) { DB.update("ricette", esistente.id, { ingredienti:ing || esistente.ingredienti, cat:cat || esistente.cat, allergeni:alg }); aggiornate++; }
+    else { DB.add("ricette", { nome:nome, cat:cat, ingredienti:ing, allergeni:alg }); nuove++; }
+  });
+  DB.add("notifiche", { ico:"⚠️", txt:"Import allergeni: " + nuove + " nuove ricette, " + aggiornate + " aggiornate", t:"ora", letta:false });
+  closeModal(); filtroCatAlg = "Tutte"; nav("allergeni");
+  alert("✓ Importate " + nuove + " nuove ricette, aggiornate " + aggiornate + ".");
+}
 function mRicetta(id){
   var r = id ? DB.get("ricette").find(function(x){ return x.id === id; }) : null;
-  var checks = ALLERGENI_UE.map(function(a, i){
+  var checks = ALLERGENI_UE.map(function(a){
     var ck = (r && r.allergeni.indexOf(a) >= 0) ? ' checked' : '';
     return '<label style="display:inline-flex;align-items:center;gap:5px;margin:0 10px 8px 0;font-size:13px"><input type="checkbox" class="alg-ck" value="' + a + '"' + ck + '> ' + a + '</label>';
   }).join("");
   openModal('<div class="m-title">' + (r ? "Modifica ricetta" : "Nuova ricetta") + '</div>' +
-    '<span class="ob-label">Nome prodotto</span><input class="ob-input" id="nr-nome" value="' + (r ? r.nome.replace(/"/g,'&quot;') : "") + '" placeholder="Es. Torta Millefoglie">' +
-    '<span class="ob-label">Ingredienti (allergeni in MAIUSCOLO)</span><textarea class="ob-input" id="nr-ingr" rows="3" placeholder="farina di FRUMENTO, LATTE, UOVA, zucchero...">' + (r ? r.ingredienti : "") + '</textarea>' +
-    '<div style="margin-top:6px"><span onclick="buildPercPanel()" style="font-family:var(--font-m);font-size:11px;color:var(--brand-deep);text-decoration:underline;cursor:pointer">\u0025 Imposta percentuali ingredienti (QUID etichetta)</span></div>' +
+    '<span class="ob-label">Nome prodotto</span><input class="ob-input" id="nr-nome" value="' + (r ? escA(r.nome) : "") + '" placeholder="Es. Torta Millefoglie">' +
+    '<span class="ob-label">Categoria</span><input class="ob-input" id="nr-cat" value="' + (r ? escA(r.cat||"") : "") + '" placeholder="Es. Torte, Cornetteria, Mignon...">' +
+    '<span class="ob-label">Ingredienti (in ordine decrescente di quantita\')</span><textarea class="ob-input" id="nr-ingr" rows="3" oninput="anteprimaAlg()" placeholder="farina di frumento, latte, uova, zucchero...">' + (r ? esc(r.ingredienti) : "") + '</textarea>' +
+    '<div id="alg-preview" style="margin-top:6px;font-family:var(--font-m);font-size:11px;color:var(--ink-soft)"></div>' +
+    '<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">' +
+    '<span onclick="rilevaAlg()" style="font-family:var(--font-m);font-size:11px;color:var(--brand-deep);text-decoration:underline;cursor:pointer">🪄 Rileva allergeni automaticamente</span>' +
+    '<span onclick="buildPercPanel()" style="font-family:var(--font-m);font-size:11px;color:var(--brand-deep);text-decoration:underline;cursor:pointer">% Imposta percentuali ingredienti (QUID)</span></div>' +
     '<div id="perc-panel" style="display:none;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;background:var(--paper)"></div>' +
-    '<span class="ob-label">Allergeni presenti (14 UE)</span><div style="margin-top:6px">' + checks + '</div>' +
+    '<span class="ob-label">Allergeni presenti (14 UE) · si spuntano da soli con 🪄, puoi correggerli a mano</span><div style="margin-top:6px">' + checks + '</div>' +
     '<input type="hidden" id="nr-id" value="' + (r ? r.id : "") + '">' +
-    '<button class="m-save" onclick="salvaRicetta()">\u2713 ' + (r ? "Salva modifiche" : "Salva ricetta") + '</button>');
+    '<button class="m-save" onclick="salvaRicetta()">✓ ' + (r ? "Salva modifiche" : "Salva ricetta") + '</button>');
+  anteprimaAlg();
 }
 function mNuovaRicetta(){ mRicetta(null); }
+function anteprimaAlg(){
+  var el = G("alg-preview");
+  if (!el) return;
+  var det = detectAllergeni(G("nr-ingr").value);
+  el.innerHTML = det.length ? "Rilevati: <b>" + det.join(", ") + "</b>" : "Nessun allergene rilevato negli ingredienti";
+}
+function rilevaAlg(){
+  var det = detectAllergeni(G("nr-ingr").value);
+  document.querySelectorAll(".alg-ck").forEach(function(c){ c.checked = det.indexOf(c.value) >= 0; });
+  anteprimaAlg();
+}
 function buildPercPanel(){
   var items = G("nr-ingr").value.split(",").map(function(s){ return s.trim(); }).filter(Boolean);
   if (!items.length) { alert("Scrivi prima gli ingredienti, separati da virgola."); return; }
@@ -804,11 +1240,11 @@ function buildPercPanel(){
     var nome = m ? m[1] : ing;
     var perc = m ? m[2].replace(",", ".") : "";
     html += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0">' +
-      '<span style="flex:1;font-size:13px">' + nome + '</span>' +
-      '<input type="number" class="perc-inp" data-nome="' + nome.replace(/"/g, '&quot;') + '" value="' + perc + '" min="0" max="100" step="0.5" placeholder="\u2014" style="width:72px;border:1.5px solid var(--line);border-radius:8px;padding:7px;font-family:var(--font-m);font-size:13px;text-align:center;outline:none;background:var(--card)">' +
+      '<span style="flex:1;font-size:13px">' + esc(nome) + '</span>' +
+      '<input type="number" class="perc-inp" data-nome="' + escA(nome) + '" value="' + perc + '" min="0" max="100" step="0.5" placeholder="—" style="width:72px;border:1.5px solid var(--line);border-radius:8px;padding:7px;font-family:var(--font-m);font-size:13px;text-align:center;outline:none;background:var(--card)">' +
       '<span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">%</span></div>';
   });
-  html += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="applicaPerc()">\u2713 Applica percentuali agli ingredienti</button>';
+  html += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="applicaPerc()">✓ Applica percentuali agli ingredienti</button>';
   G("perc-panel").innerHTML = html;
   G("perc-panel").style.display = "block";
 }
@@ -821,6 +1257,7 @@ function applicaPerc(){
   });
   if (out.length) G("nr-ingr").value = out.join(", ");
   G("perc-panel").style.display = "none";
+  anteprimaAlg();
 }
 function salvaRicetta(){
   var nome = G("nr-nome").value.trim();
@@ -828,7 +1265,7 @@ function salvaRicetta(){
   var sel = [];
   document.querySelectorAll(".alg-ck").forEach(function(c){ if (c.checked) sel.push(c.value); });
   var rid = G("nr-id").value;
-  var dati = { nome:nome, ingredienti:G("nr-ingr").value.trim(), allergeni:sel };
+  var dati = { nome:nome, cat:G("nr-cat").value.trim(), ingredienti:G("nr-ingr").value.trim(), allergeni:sel };
   if (rid) DB.update("ricette", rid, dati);
   else DB.add("ricette", dati);
   closeModal(); nav("allergeni");
@@ -836,27 +1273,127 @@ function salvaRicetta(){
 function mEtichetta(id){
   var r = DB.get("ricette").find(function(x){ return x.id === id; });
   if (!r) return;
-  var ingHtml = r.ingredienti.replace(/([A-Z\u00c0-\u00dc]{3,}(?:\s+[A-Z\u00c0-\u00dc]{2,})*)/g, "<b>$1</b>");
+  var ingHtml = evidenziaAllergeni(r.ingredienti);
   var algList = r.allergeni.length ? r.allergeni.join(", ") : "nessuno dichiarato";
   var testoCopia = r.nome + "\\nIngredienti: " + r.ingredienti + "\\nAllergeni: " + algList + "\\nProdotto da " + (ATT.nome || "") + (ATT.citta ? " - " + ATT.citta : "");
-  openModal('<div class="m-title">\ud83c\udff7\ufe0f Etichetta \u00b7 ' + r.nome + '</div>' +
+  openModal('<div class="m-title">\ud83c\udff7\ufe0f Etichetta · ' + esc(r.nome) + '</div>' +
     '<div style="border:2px solid var(--ink);border-radius:12px;padding:16px;font-size:13px;line-height:1.7">' +
-    '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + r.nome + '</div>' +
+    '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + esc(r.nome) + '</div>' +
     '<div><span style="font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft)">Ingredienti</span><br>' + ingHtml + '</div>' +
-    '<div style="margin-top:8px"><span style="font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft)">Allergeni (Reg. UE 1169/2011)</span><br><b>' + algList + '</b></div>' +
-    '<div style="margin-top:8px;font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">Prodotto da ' + (ATT.nome||"") + (ATT.citta ? " \u00b7 " + ATT.citta : "") + '</div>' +
+    '<div style="margin-top:8px"><span style="font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft)">Allergeni (Reg. UE 1169/2011)</span><br><b>' + esc(algList) + '</b></div>' +
+    '<div style="margin-top:8px;font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">Prodotto da ' + esc(ATT.nome||"") + (ATT.citta ? " · " + esc(ATT.citta) : "") + '</div>' +
     '</div>' +
-    '<button class="m-save" onclick="copiaEtichetta(this, \'' + encodeURIComponent(testoCopia) + '\')">\ud83d\udccb Copia testo etichetta</button>' +
-    '<div style="text-align:center;margin-top:14px"><span onclick="mRicetta(\'' + r.id + '\')" style="font-family:var(--font-m);font-size:12px;color:var(--brand-deep);text-decoration:underline;cursor:pointer;margin-right:18px">\u270e Modifica ricetta</span>' +
+    '<button class="m-save" onclick="copiaEtichetta(this, \'' + encodeURIComponent(testoCopia) + '\')">📋 Copia testo etichetta</button>' +
+    '<div style="text-align:center;margin-top:14px"><span onclick="mRicetta(\'' + r.id + '\')" style="font-family:var(--font-m);font-size:12px;color:var(--brand-deep);text-decoration:underline;cursor:pointer;margin-right:18px">✎ Modifica ricetta</span>' +
     '<span onclick="delRicetta(\'' + r.id + '\')" style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);text-decoration:underline;cursor:pointer">Elimina</span></div>');
 }
 function copiaEtichetta(btn, enc){
   var txt = decodeURIComponent(enc).replace(/\\n/g, "\n");
-  if (navigator.clipboard) { navigator.clipboard.writeText(txt); btn.textContent = "\u2713 Copiato!"; }
+  if (navigator.clipboard) { navigator.clipboard.writeText(txt); btn.textContent = "✓ Copiato!"; }
   else { alert(txt); }
 }
 function delRicetta(id){ if (confirm("Elimino questa ricetta?")) { DB.remove("ricette", id); closeModal(); render(); } }
 
+// ═══ BOT TORTE (catalogo WaFagotti · si salva su Firestore bot_app/catalogo) ═══
+function rBotTorte(){
+  var c = CDB.load();
+  var h = '<div class="pg-title">🎂 Bot torte</div><div class="pg-sub">Il catalogo del configuratore WaFagotti: modificalo per stagione e premi Pubblica · gli ordini completati dal bot arrivano in Ordini con 🌐</div>';
+  if (c.aggiornato) h += '<div class="bar-actions"><span style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft)">Ultima pubblicazione: ' + esc(c.aggiornato) + '</span></div>';
+
+  // ── Torte & prezzi ──
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">🎂 Torte a catalogo (€/kg)</div>';
+  c.listino.forEach(function(t, i){
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--paper);font-size:13px">' +
+      '<span style="flex:1;font-weight:700">' + esc(t.nome) + '</span>' +
+      '<span style="font-family:var(--font-m);color:var(--brand-deep)">€' + t.prezzoKg + '/kg</span>' +
+      '<button class="st st-confermato" onclick="mTorta(' + i + ')">✎</button>' +
+      '<button class="st st-nuovo" onclick="delTorta(' + i + ')">✕</button></div>';
+  });
+  h += '<button class="btn-add" style="width:100%;margin-top:10px" onclick="mTorta(-1)">+ Nuova torta</button></div>';
+
+  // ── Farciture & decorazioni ──
+  h += chipEditor("🍓 Farciture proposte dal bot", "farciture", c.farciture);
+  h += chipEditor("✨ Decorazioni proposte dal bot", "decorazioni", c.decorazioni);
+  h += chipEditor("⏰ Orari di ritiro/consegna", "orari", c.orari);
+
+  // ── Parametri ──
+  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">⚙️ Parametri prezzo e contatto</div>';
+  h += '<div class="m-2col"><div><span class="ob-label">Costo consegna a domicilio €</span><input class="ob-input" type="number" step="0.5" id="bt-consegna" value="' + c.costoConsegna + '"></div>' +
+    '<div><span class="ob-label">Kg a persona (stima porzioni)</span><input class="ob-input" type="number" step="0.01" id="bt-kgp" value="' + c.kgPersona + '"></div></div>';
+  h += '<div class="m-2col"><div><span class="ob-label">Stima minima % (es. 85)</span><input class="ob-input" type="number" step="1" id="bt-min" value="' + c.stimaMin + '"></div>' +
+    '<div><span class="ob-label">Stima massima % (es. 115)</span><input class="ob-input" type="number" step="1" id="bt-max" value="' + c.stimaMax + '"></div></div>';
+  h += '<span class="ob-label">Numero WhatsApp del bot (39 + numero, senza +)</span><input class="ob-input" id="bt-wa" value="' + escA(c.waNumber||"") + '" placeholder="393331234567">';
+  h += '</div>';
+
+  h += '<button class="set-save" style="width:100%;max-width:560px;padding:14px;font-size:15px" onclick="pubblicaCatalogo()">🚀 Pubblica catalogo su WaFagotti</button>';
+  h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);margin-top:10px;line-height:1.7">Il bot WaFagotti legge questo catalogo da Firestore a ogni apertura: le modifiche pubblicate sono subito online, senza toccare il codice.</div>';
+  return h;
+}
+function chipEditor(titolo, campo, lista){
+  var h = '<div class="kcard" style="margin-bottom:13px"><div class="k-top">' + titolo + '</div><div class="chips">';
+  lista.forEach(function(v, i){
+    h += '<span class="chip">' + esc(v) + ' <span style="cursor:pointer;color:var(--danger);font-weight:700" onclick="rmVoce(\'' + campo + '\',' + i + ')">✕</span></span>';
+  });
+  h += '</div><div style="display:flex;gap:8px;margin-top:10px"><input class="ob-input" id="add-' + campo + '" placeholder="Aggiungi..." style="flex:1" onkeydown="if(event.key===\'Enter\')addVoce(\'' + campo + '\')">';
+  h += '<button class="btn-add" onclick="addVoce(\'' + campo + '\')">+</button></div></div>';
+  return h;
+}
+function salvaParametriBot(){
+  var c = CDB.load();
+  if (G("bt-consegna")) c.costoConsegna = parseFloat(G("bt-consegna").value) || 0;
+  if (G("bt-kgp")) c.kgPersona = parseFloat(G("bt-kgp").value) || 0.15;
+  if (G("bt-min")) c.stimaMin = parseFloat(G("bt-min").value) || 85;
+  if (G("bt-max")) c.stimaMax = parseFloat(G("bt-max").value) || 115;
+  if (G("bt-wa")) c.waNumber = G("bt-wa").value.replace(/[^0-9]/g, "");
+}
+function addVoce(campo){
+  salvaParametriBot();
+  var inp = G("add-" + campo);
+  var v = inp.value.trim();
+  if (!v) return;
+  CDB.load()[campo].push(v);
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
+  render();
+}
+function rmVoce(campo, i){
+  salvaParametriBot();
+  CDB.load()[campo].splice(i, 1);
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
+  render();
+}
+function mTorta(i){
+  salvaParametriBot();
+  var t = i >= 0 ? CDB.load().listino[i] : null;
+  openModal('<div class="m-title">' + (t ? "Modifica torta" : "Nuova torta") + '</div>' +
+    '<span class="ob-label">Nome</span><input class="ob-input" id="tt-nome" value="' + (t ? escA(t.nome) : "") + '" placeholder="Es. Tiramisu\' classico">' +
+    '<span class="ob-label">Prezzo €/kg</span><input class="ob-input" type="number" step="0.5" id="tt-prezzo" value="' + (t ? t.prezzoKg : "") + '" placeholder="30">' +
+    '<input type="hidden" id="tt-i" value="' + i + '">' +
+    '<button class="m-save" onclick="salvaTorta()">✓ Salva torta</button>');
+}
+function salvaTorta(){
+  var nome = G("tt-nome").value.trim();
+  var prezzo = parseFloat(G("tt-prezzo").value) || 0;
+  if (!nome || !prezzo) { alert("Inserisci nome e prezzo al kg."); return; }
+  var i = parseInt(G("tt-i").value, 10);
+  if (i >= 0) CDB.load().listino[i] = { nome:nome, prezzoKg:prezzo };
+  else CDB.load().listino.push({ nome:nome, prezzoKg:prezzo });
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
+  closeModal(); render();
+}
+function delTorta(i){
+  if (!confirm("Tolgo questa torta dal catalogo del bot?")) return;
+  salvaParametriBot();
+  CDB.load().listino.splice(i, 1);
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(CDB.cache)); } catch(e) {}
+  render();
+}
+function pubblicaCatalogo(){
+  salvaParametriBot();
+  CDB.save();
+  DB.add("notifiche", { ico:"🎂", txt:"Catalogo bot torte pubblicato su Firestore", t:"ora", letta:false });
+  alert("🚀 Catalogo pubblicato! Il bot WaFagotti lo usera\' dalla prossima apertura.");
+  render();
+}
 // ═══ FORNITORI v2 (liste per fornitore \u2192 WhatsApp al numero collegato) ═══
 var pendingProd = null;
 function fornTel(nome){
@@ -1006,11 +1543,13 @@ function salvaProdDisp(){
   } else DB.add("dispensa", dati);
   closeModal(); nav("fornitori");
 }
+
+// waListaFornitore con template modificabile (Impostazioni → Template WhatsApp)
 function waListaFornitore(forn){
   var items = DB.get("lista_spesa").filter(function(x){ return (x.fornitore || "Senza fornitore") === forn; });
   if (!items.length) { alert("Lista vuota per questo fornitore."); return; }
   var oggi = new Date();
-  var msg = "Buongiorno! Ordine da " + (ATT.nome||"") + " \u2014 " + oggi.getDate() + "/" + (oggi.getMonth()+1) + "\n";
+  var msg = applyTpl(getTpl("tpl_fornitore"), { attivita: ATT.nome || "", data: oggi.getDate() + "/" + (oggi.getMonth()+1), fornitore: forn }) + "\n";
   items.forEach(function(x){ msg += "\u2022 " + x.qta + " " + (x.unita||"pz") + " \u2014 " + x.nome + "\n"; });
   msg += "Grazie!";
   var tel = fornTel(forn);
@@ -1018,7 +1557,7 @@ function waListaFornitore(forn){
   window.open(url, "_blank");
 }
 
-// ═══ WHATSAPP ═══
+// ═══ WHATSAPP (template modificabili) ═══
 function waNorm(tel){
   var t = (tel || "").replace(/[^0-9]/g, "");
   if (t.length === 10 && t.charAt(0) === "3") t = "39" + t;
@@ -1028,77 +1567,74 @@ function waLink(tel, msg){ return "https://wa.me/" + waNorm(tel) + "?text=" + en
 function waOrdine(id){
   var o = DB.get("ordini").find(function(x){ return x.id === id; });
   if (!o || !o.tel) { alert("Nessun numero di telefono su questo ordine."); return; }
-  var msg = "Ciao " + o.cliente + "! Il tuo ordine " + o.numero + " (" + o.righe + ") " +
-    (o.stato === "pronto" ? "e' PRONTO per il ritiro" : "e' previsto per il " + dataIT(o.data) + " alle " + (o.ora||"")) +
-    ". A presto! \u2014 " + (ATT.nome || "");
+  var nomeTpl = o.stato === "pronto" ? "tpl_pronto" : (o.canale === "online" && (o.stato === "nuovo" || o.stato === "confermato") ? "tpl_online" : "tpl_promemoria");
+  var msg = applyTpl(getTpl(nomeTpl), {
+    cliente: o.cliente, numero: o.numero, righe: o.righe,
+    data: dataIT(o.data), ora: o.ora || "", totale: eur(o.totale), attivita: ATT.nome || ""
+  });
   window.open(waLink(o.tel, msg), "_blank");
 }
-function waPren(id){
-  var p = DB.get("prenotazioni").find(function(x){ return x.id === id; });
-  if (!p || !p.tel) { alert("Nessun numero su questa prenotazione."); return; }
-  var msg = "Ciao " + p.cliente + "! Confermiamo la tua prenotazione per " + p.ospiti + " il " + dataIT(p.data) + " alle " + p.ora + ". A presto! \u2014 " + (ATT.nome || "");
-  window.open(waLink(p.tel, msg), "_blank");
-}
-function rWhatsApp(){
-  var h = '<div class="pg-title">\ud83d\udcac WhatsApp</div><div class="pg-sub">Messaggi rapidi ai clienti \u00b7 si apre WhatsApp con il testo gia\' pronto</div>';
-  var t = todayStr();
-  var pronti = DB.get("ordini").filter(function(o){ return o.stato === "pronto" && o.tel; });
-  var oggi = DB.get("ordini").filter(function(o){ return o.data === t && o.stato !== "ritirato" && o.tel; });
-  h += '<div class="kcard" style="margin-bottom:13px"><div class="k-top">\ud83d\udce6 Ordini pronti da avvisare</div>';
-  if (!pronti.length) h += '<div class="k-det">Nessun ordine pronto con telefono.</div>';
-  pronti.forEach(function(o){
-    h += '<div class="row" style="margin:8px 0"><div class="row-main"><div class="row-t">' + o.cliente + '</div><div class="row-s">' + o.numero + ' \u00b7 ' + o.righe + '</div></div>';
-    h += '<button class="st st-pronto" onclick="waOrdine(\'' + o.id + '\')">\ud83d\udcac AVVISA</button></div>';
-  });
-  h += '</div>';
-  h += '<div class="kcard"><div class="k-top">\ud83e\udd16 Bot automatico (piano Business)</div>';
-  h += '<div class="k-det" style="line-height:1.7">Il bot risponde da solo ai clienti che ti scrivono su WhatsApp: orari, ordini, prenotazioni. Con la WhatsApp Cloud API di Meta <b>ricevere messaggi e rispondere entro 24 ore e\' gratuito</b> \u2014 si paga solo per i template promozionali in uscita. Setup: numero dedicato + Cloud API + funzione serverless su Vercel (arriva con lo Sprint Bot).</div></div>';
-  return h;
-}
 
-// ═══ PLACEHOLDER + IMPOSTAZIONI ═══
-var MODULI = {
-  social: { ico:"\u2728", nome:"KunMor Social AI", desc:"Il motore di marketing dell'ecosistema: genera Reel, caroselli, caption e hashtag per la tua attivita', salva il calendario editoriale, esporta verso Metricool e traccia i lead nel CRM. In futuro si collega a LocalCrew per trovare creator della tua zona.", sprint:"Sprint 6 \u00b7 Ecosistema KunMor" }
-};
-function rPlaceholder(v){
-  var m = MODULI[v] || { ico:"🧩", nome:v, desc:"In arrivo.", sprint:"presto" };
-  return '<div class="mod-hero"><div class="ico">' + m.ico + '</div><h2>' + m.nome + '</h2><p>' + m.desc + '</p><span class="tag">In arrivo · ' + m.sprint + '</span></div>';
-}
-function pianoLabel(p){
-  return { hub_starter:"Hub Starter 9,90€/mese", hub_pro:"Hub Pro 14,90€/mese", hub_business:"Hub Business 34,90€/mese" }[p] || p;
-}
+// ═══ IMPOSTAZIONI ═══
 function rImpostazioni(){
-  var h = '<div class="pg-title">⚙️ Impostazioni</div><div class="pg-sub">Attività · piano · account</div>';
-  h += '<div class="set-box"><div class="set-title">🏪 Attività</div>';
-  h += '<span class="ob-label">Nome</span><input class="ob-input" id="set-nome" value="' + (ATT.nome||"") + '">';
-  h += '<span class="ob-label">Città</span><input class="ob-input" id="set-citta" value="' + (ATT.citta||"") + '">';
+  var s = DB.load().settings;
+  var tpl = s.waTemplates || tplDefaults();
+  var h = '<div class="pg-title">⚙️ Impostazioni</div><div class="pg-sub">Attivita\' · ordine moduli · template WhatsApp</div>';
+  h += '<div class="set-box"><div class="set-title">🏪 Attivita\'</div>';
+  h += '<span class="ob-label">Nome</span><input class="ob-input" id="set-nome" value="' + escA(s.attivita.nome||"") + '">';
+  h += '<span class="ob-label">Citta\'</span><input class="ob-input" id="set-citta" value="' + escA(s.attivita.citta||"") + '">';
   h += '<button class="set-save" onclick="salvaSet()">✓ Salva</button></div>';
-  h += '<div class="set-box"><div class="set-title">\ud83d\udcd1 Ordine moduli</div>';
+
+  h += '<div class="set-box"><div class="set-title">📑 Ordine moduli</div>';
   h += '<p style="font-size:12px;color:var(--ink-soft);font-family:var(--font-m);margin-bottom:10px">Sposta le voci nell\'ordine che preferisci (Oggi resta prima, Impostazioni ultima)</p>';
   var mobili = vociOrdinate().filter(function(x){ return x.v !== "oggi" && x.v !== "impostazioni"; });
   mobili.forEach(function(x, i){
     h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--paper)">';
     h += '<span style="flex:1;font-weight:700;font-size:14px">' + x.ico + ' ' + x.n + '</span>';
-    h += '<button class="st st-ritirato" style="opacity:' + (i === 0 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',-1)">\u25b2</button>';
-    h += '<button class="st st-ritirato" style="opacity:' + (i === mobili.length-1 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',1)">\u25bc</button>';
+    h += '<button class="st st-ritirato" style="opacity:' + (i === 0 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',-1)">▲</button>';
+    h += '<button class="st st-ritirato" style="opacity:' + (i === mobili.length-1 ? '.3' : '1') + '" onclick="moveTab(\'' + x.v + '\',1)">▼</button>';
     h += '</div>';
   });
   h += '</div>';
+
+  h += '<div class="set-box"><div class="set-title">💬 Template WhatsApp</div>';
+  h += '<p style="font-size:12px;color:var(--ink-soft);font-family:var(--font-m);margin-bottom:4px;line-height:1.7">I testi dei messaggi li decidi tu. Segnaposto disponibili:<br>{cliente} {numero} {righe} {data} {ora} {totale} {attivita} · per i fornitori anche {fornitore}</p>';
+  h += '<span class="ob-label">Ordine PRONTO (avviso ritiro)</span><textarea class="ob-input" id="tpl-pronto" rows="3">' + esc(tpl.tpl_pronto||"") + '</textarea>';
+  h += '<span class="ob-label">Promemoria ordine (non ancora pronto)</span><textarea class="ob-input" id="tpl-promemoria" rows="3">' + esc(tpl.tpl_promemoria||"") + '</textarea>';
+  h += '<span class="ob-label">Conferma ordine ONLINE (dal bot torte)</span><textarea class="ob-input" id="tpl-online" rows="3">' + esc(tpl.tpl_online||"") + '</textarea>';
+  h += '<span class="ob-label">Intestazione ordine FORNITORE (le righe della lista si aggiungono da sole)</span><textarea class="ob-input" id="tpl-fornitore" rows="2">' + esc(tpl.tpl_fornitore||"") + '</textarea>';
+  h += '<button class="set-save" onclick="salvaTemplates()">✓ Salva template</button>';
+  h += '<div style="text-align:right;margin-top:8px"><span onclick="resetTemplates()" style="font-family:var(--font-m);font-size:11px;color:var(--ink-soft);text-decoration:underline;cursor:pointer">Ripristina testi standard</span></div></div>';
+
   h += '<div class="set-box"><div class="set-title">👤 Account</div>';
   h += '<p style="font-size:13px;color:var(--ink-soft)">Accesso condiviso Pasticceria Fagotti · password unica del team</p>';
-  if (DEMO) h += '<button class="set-save" style="background:var(--danger);margin-top:12px" onclick="resetDemo()">↺ Azzera dati demo</button>';
   h += '</div>';
   return h;
 }
 function salvaSet(){
-  ATT.nome = G("set-nome").value.trim() || ATT.nome;
-  ATT.citta = G("set-citta").value.trim();
+  var s = DB.load().settings;
+  s.attivita.nome = G("set-nome").value.trim() || s.attivita.nome;
+  s.attivita.citta = G("set-citta").value.trim();
+  DB.save();
+  ATT = attivitaDaSettings();
   G("hdr-att").textContent = ATT.nome;
   alert("✓ Salvato");
 }
-function resetDemo(){
-  if (!confirm("Azzero tutti i dati demo?")) return;
-  localStorage.removeItem(STORE_KEY); DB.cache = null; render();
+function salvaTemplates(){
+  var s = DB.load().settings;
+  s.waTemplates = {
+    tpl_pronto: G("tpl-pronto").value.trim(),
+    tpl_promemoria: G("tpl-promemoria").value.trim(),
+    tpl_online: G("tpl-online").value.trim(),
+    tpl_fornitore: G("tpl-fornitore").value.trim()
+  };
+  DB.save();
+  alert("✓ Template salvati");
+}
+function resetTemplates(){
+  if (!confirm("Ripristino i testi standard dei messaggi WhatsApp?")) return;
+  DB.load().settings.waTemplates = tplDefaults();
+  DB.save(); render();
 }
 
 // ═══ MODAL ═══
@@ -1108,9 +1644,10 @@ G("modal").addEventListener("click", function(e){ if (e.target === G("modal")) c
 
 // ═══ SESSIONE AUTO ═══
 if (sessionStorage.getItem("fh_auth")) {
-  ATT = { nome:"Pasticceria Fagotti", citta:"Roma", piano:"interno" };
   G("login").classList.add("hidden");
-  syncAll(function(){ enterApp(); });
+  ATT = attivitaDaSettings();
+  enterApp();
+  syncAll(function(){ ATT = attivitaDaSettings(); enterApp(); });
 }
 G("l-pwd").addEventListener("keydown", function(e){ if (e.key === "Enter") doLogin(); });
 
@@ -1120,6 +1657,7 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(function(e){ console.warn("SW:", e); });
   });
 }
+
 </script>
 </body>
 </html>
