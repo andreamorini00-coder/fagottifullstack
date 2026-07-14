@@ -349,6 +349,8 @@ function statoDefault(){
     ordini:[],
     prodotti: seedProdotti(),
     fornitori: seedFornitori(),
+    botCat:{ caricato:false, waNumber:'', pageUrl:'', shopUrl:'', costoConsegna:10,
+      kgPersona:0.15, stimaMin:85, stimaMax:115, listino:[], farciture:[], decorazioni:[], orari:[] },
     bot:{ templates:[
       { id:'t1', nome:'Conferma ordine', testo:'Ciao {cliente}! Confermiamo il tuo ordine per il {data}. Grazie da {attivita}!' },
       { id:'t2', nome:'Ordine pronto',   testo:'Ciao {cliente}! Il tuo ordine è pronto per il ritiro. Ti aspettiamo! — {attivita}' },
@@ -444,7 +446,7 @@ window.addEventListener('storage', function(e){
    legge ordini (collection 'ordini') e turni (turni_app/fagotti_pro)
    dalle app Fagotti e aggiorna la dashboard in tempo reale.
    ============================================================ */
-var LIVE = { ordini:[], turni:{}, prontoFB:false, errore:false };
+var LIVE = { ordini:[], ordiniOnline:[], turni:{}, catalogo:{}, prontoFB:false, errore:false };
 var db = null;
 
 (function initFirebase(){
@@ -475,6 +477,50 @@ function ascoltaFirestore(){
     LIVE.turni = (doc.exists && doc.data().turni) ? doc.data().turni : {};
     if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
   }, function(){});
+
+  // Ordini online dal bot WhatsApp / shop (collection separata 'ordini_online')
+  db.collection("ordini_online").onSnapshot(function(snap){
+    LIVE.ordiniOnline = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
+  }, function(){});
+
+  caricaCatalogoBot();
+}
+
+/* Legge bot_app/catalogo una volta sola (get, non onSnapshot: non deve
+   sovrascrivere il form mentre lo stai compilando). */
+function caricaCatalogoBot(){
+  if(!db) return;
+  db.collection("bot_app").doc("catalogo").get().then(function(doc){
+    if(!doc.exists) return;
+    var c = doc.data() || {};
+    LIVE.catalogo = c;
+    state.botCat.pageUrl = c.pageUrl || '';
+    if(!state.botCat.caricato){
+      state.botCat.caricato = true;
+      state.botCat.waNumber = c.waNumber || '';
+      state.botCat.shopUrl = c.shopUrl || '';
+      if(c.costoConsegna !== undefined && c.costoConsegna !== null) state.botCat.costoConsegna = c.costoConsegna;
+      if(c.kgPersona) state.botCat.kgPersona = c.kgPersona;
+      if(c.stimaMin) state.botCat.stimaMin = c.stimaMin;
+      if(c.stimaMax) state.botCat.stimaMax = c.stimaMax;
+      state.botCat.farciture = c.farciture || [];
+      state.botCat.decorazioni = c.decorazioni || [];
+      state.botCat.orari = c.orari || [];
+      state.botCat.listino = (c.listino||[]).map(function(t){
+        return { nome:t.nome, prezzoKg:Number(t.prezzoKg)||30, attivo:true };
+      });
+    }
+    if(!state.botCat.listino.length) state.botCat.listino = listinoDaSeed();
+    salva();
+    if(vistaCorrente === 'bot' && !modCliente) renderBot();
+  }).catch(function(){});
+}
+
+/* Se il catalogo online è vuoto, parto dalle torte già importate nella Suite */
+function listinoDaSeed(){
+  return state.prodotti.filter(function(p){ return p.cat === 'torta'; })
+    .map(function(p){ return { nome:p.nome, prezzoKg:p.prezzo || 30, attivo:true }; });
 }
 
 /* Normalizza le chiavi turno 'Nome|YYYY-M-D' (mese/giorno non zero-padded)
@@ -559,9 +605,11 @@ function renderDashboard(){
              prodotto:o.prodotto || (o.salProdotto || ''), consegna:o.consegna };
   });
   var ordiniLocali = state.ordini.filter(function(o){ return o.stato !== 'ritirato'; });
-  var totOrdiniAperti = ordiniFB.length + ordiniLocali.length;
+  var online = LIVE.ordiniOnline || [];
+  var totOrdiniAperti = ordiniFB.length + ordiniLocali.length + online.length;
   var oggiOrdini = ordiniFB.filter(function(o){ return o.data === ok; }).length +
-                   ordiniLocali.filter(function(o){ return o.ritiro === ok; }).length;
+                   ordiniLocali.filter(function(o){ return o.ritiro === ok; }).length +
+                   online.filter(function(o){ return (o.data || o.dataRitiro) === ok; }).length;
 
   var listeAperte = state.fornitori.filter(function(f){ return f.lista && f.lista.length; }).length;
 
@@ -603,6 +651,18 @@ function renderDashboard(){
       }).join('')
     : '<p class="muted">Ordini shop e liste fornitori compariranno qui.</p>';
 
+  // ── Ordini arrivati dal bot WhatsApp / shop online ──
+  var boxOnline = online.length
+    ? online.slice().sort(function(a,b){ return (b.creato||0) - (a.creato||0); }).slice(0,5).map(function(o){
+        return '<div class="evento">' +
+          '<div class="ico oro">🤖</div>' +
+          '<div><div class="txt">' + esc(o.nome || o.cliente || 'Cliente') +
+            (o.torta ? ' — ' + esc(o.torta) : '') + (o.persone ? ' · ' + esc(o.persone) + ' pers.' : '') + '</div>' +
+          '<div class="ora">' + ((o.data || o.dataRitiro) ? dLocDaKey(o.data || o.dataRitiro) : 'senza data') +
+            (o.telefono ? ' · 📞 ' + esc(o.telefono) : '') + '</div></div></div>';
+      }).join('')
+    : '<p class="muted">Nessun ordine dal bot WhatsApp.</p>';
+
   document.getElementById('v-dashboard').innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
       '<span class="muted">Aggiornamento in tempo reale</span>' + statoFB + '</div>' +
@@ -614,6 +674,7 @@ function renderDashboard(){
     '</div>' +
     '<div class="card"><h3>📅 In turno oggi · ' + dLocDaKey(ok) + '</h3>' + boxTurni + '</div>' +
     '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
+    '<div class="card"><h3>🤖 Ordini dal bot WhatsApp</h3>' + boxOnline + '</div>' +
     '<div class="card"><h3>🔔 Attività Suite (shop, fornitori, HACCP)</h3>' + feed + '</div>';
 }
 
@@ -691,7 +752,7 @@ function setTurno(depId, codice){
 /* ============================================================
    ORDINI
    ============================================================ */
-var filtroOrdini = 'tutti';
+var dataOrdini = oggiKey();
 
 function descRighe(o){
   if(o.righe && o.righe.length){
@@ -708,62 +769,143 @@ function totOrdine(o){
 }
 
 function renderOrdini(){
-  var filtri = ['tutti'].concat(STATI_ORDINE).map(function(f){
-    var att = filtroOrdini === f ? ' active' : '';
-    return '<button class="subtab' + att + '" onclick="filtroOrdini=\'' + f + '\';render()">' + f + '</button>';
+  // ── Helper descrizione, stessi formati dell'app Ordini ──
+  function orMin(s){
+    if(!s) return 9999;
+    var m = String(s).match(/^(\d{1,2}):(\d{2})$/);
+    return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : 9999;
+  }
+  function cKg(pers, gr){ return (Number(pers)||8) * (Number(gr)||150) / 1000; }
+  function tLine(t){
+    var pw;
+    if(t.modo === 'kg') pw = t.peso || '1kg';
+    else if(t.modo === 'pz') pw = (t.pezzi||1) + ' pz';
+    else pw = (t.persone||8) + 'p (~' + cKg(t.persone, t.grammi).toFixed(2) + 'kg)';
+    var l = '🎂 ' + esc(t.prodotto) + ' · ' + esc(pw);
+    if(t.modo !== 'pz' && (t.qtaTorte||1) > 1) l += ' × ' + t.qtaTorte + ' torte';
+    if(t.farcitura) l += ' | ' + esc(t.farcitura);
+    if(t.decorazione) l += ' | ' + esc(t.decorazione);
+    return l;
+  }
+  function sLine(s){
+    var sw = (s.salModo === 'kg' || s.modo === 'kg')
+      ? (s.salPeso || s.peso || '1kg')
+      : ((s.salQta || s.qta || 1) + ' pz');
+    return '🥗 ' + esc(s.salProdotto || s.prodotto) + ' · ' + esc(sw);
+  }
+  function righeOrdineFB(o){
+    var r = [];
+    if(o.prodotto) r.push(tLine({ prodotto:o.prodotto, modo:o.modo, peso:o.peso, persone:o.persone,
+      grammi:o.grammi, qtaTorte:o.qtaTorte, pezzi:o.pezzi, farcitura:o.farcitura, decorazione:o.decorazione }));
+    if(o.torteExtra) o.torteExtra.forEach(function(t){ r.push(tLine(t)); });
+    if(o.salProdotto) r.push(sLine(o));
+    if(o.salatiExtra) o.salatiExtra.forEach(function(s){ r.push(sLine(s)); });
+    return r;
+  }
+
+  // ── Ordini del giorno selezionato: Firestore + locali (shop/manuali) ──
+  var delGiorno = LIVE.ordini.filter(function(o){ return o.data === dataOrdini; })
+    .sort(function(a,b){
+      var d = orMin(a.orario) - orMin(b.orario);
+      return d !== 0 ? d : String(a.cliente||'').localeCompare(String(b.cliente||''));
+    });
+  var localiGiorno = state.ordini.filter(function(o){ return o.ritiro === dataOrdini; });
+
+  var statoFB = !db ? '<span class="badge err">Firebase offline</span>'
+    : (LIVE.errore ? '<span class="badge err">permessi Firestore</span>'
+    : (LIVE.prontoFB ? '<span class="badge ok">● live</span>' : '<span class="badge warn">connessione…</span>'));
+
+  // ── Card ordini da Firestore (sola lettura) ──
+  var htmlFB = delGiorno.map(function(o){
+    var righe = righeOrdineFB(o);
+    var wa = o.telefono
+      ? '<button class="btn mini verde" onclick="waTelefono(\'' + esc(o.telefono) + '\', \'' + esc(String(o.cliente||'').replace(/'/g,"")) + '\')">💬 WhatsApp</button>'
+      : '';
+    return '<div class="item">' +
+      '<div class="top"><div>' +
+        '<span class="badge ' + (o.consegna ? 'oro' : 'grigio') + '">' + (o.consegna ? '🚚 consegna' : '🏪 ritiro') + '</span> ' +
+        (o.orario ? '<span class="badge">🕐 ' + esc(o.orario) + '</span>' : '<span class="badge grigio">orario da definire</span>') +
+        '<div class="nome" style="margin-top:6px">' + esc(o.cliente || 'Cliente') + '</div>' +
+        (righe.length ? '<div class="dett">' + righe.join('<br>') + '</div>' : '') +
+        (o.note ? '<div class="dett">📝 ' + esc(o.note) + '</div>' : '') +
+        (o.telefono ? '<div class="dett">📞 ' + esc(o.telefono) + '</div>' : '') +
+      '</div></div>' +
+      '<div class="azioni">' + wa +
+        '<button class="btn mini sec" onclick="apriApp(state.settings.urlOrdini, true)">✏️ Modifica nell\'app</button>' +
+      '</div></div>';
   }).join('');
 
-  var lista = state.ordini.filter(function(o){
-    return filtroOrdini === 'tutti' || o.stato === filtroOrdini;
-  });
-
+  // ── Card ordini locali (shop / manuali) ──
   var canali = { shop:'🛍️ Shop', torta:'🎂 Torta', manuale:'✍️ Manuale' };
   var colStato = { 'nuovo':'err', 'confermato':'warn', 'in preparazione':'warn', 'pronto':'ok', 'ritirato':'grigio' };
+  var htmlLoc = localiGiorno.map(function(o){
+    var tot = totOrdine(o) || o.totale || 0;
+    var ultimo = o.stato === STATI_ORDINE[STATI_ORDINE.length-1];
+    var wa = o.tel ? '<button class="btn mini verde" onclick="waOrdine(\'' + o.id + '\')">💬 WhatsApp</button>' : '';
+    return '<div class="item">' +
+      '<div class="top"><div>' +
+        (o.numero ? '<span class="badge grigio">' + esc(o.numero) + '</span> ' : '') +
+        '<span class="badge oro">' + (canali[o.canale]||o.canale) + '</span> ' +
+        '<button class="badge ' + (colStato[o.stato]||'') + '" style="border:none;cursor:pointer" ' +
+          'onclick="avanzaOrdine(\'' + o.id + '\')" title="Tocca per avanzare">' + esc(o.stato) + (ultimo ? '' : ' →') + '</button>' +
+        '<div class="nome" style="margin-top:6px">' + esc(o.cliente || 'Cliente') + '</div>' +
+        '<div class="dett">' + esc(descRighe(o)) + '</div>' +
+        (o.ora ? '<div class="dett">🕐 ' + esc(o.ora) + '</div>' : '') +
+        (o.note ? '<div class="dett">📝 ' + esc(o.note) + '</div>' : '') +
+        (tot ? '<div class="dett">Totale: ' + euro(tot) + '</div>' : '') +
+      '</div></div>' +
+      '<div class="azioni">' + wa +
+        '<button class="btn mini rosso" onclick="eliminaOrdine(\'' + o.id + '\')">Elimina</button>' +
+      '</div></div>';
+  }).join('');
 
-  var html = lista.length
-    ? lista.map(function(o){
-        var tot = totOrdine(o) || o.totale || 0;
-        var ultimo = o.stato === STATI_ORDINE[STATI_ORDINE.length-1];
-        var wa = o.tel
-          ? '<button class="btn mini verde" onclick="waOrdine(\'' + o.id + '\')">💬 WhatsApp</button>'
-          : '';
-        return '<div class="item">' +
-          '<div class="top"><div>' +
-            (o.numero ? '<span class="badge grigio">' + esc(o.numero) + '</span> ' : '') +
-            '<span class="badge oro">' + (canali[o.canale]||o.canale) + '</span> ' +
-            '<button class="badge ' + (colStato[o.stato]||'') + '" style="border:none;cursor:pointer" ' +
-              'onclick="avanzaOrdine(\'' + o.id + '\')" title="Tocca per avanzare">' + esc(o.stato) + (ultimo ? '' : ' →') + '</button>' +
-            '<div class="nome" style="margin-top:6px">' + esc(o.cliente || 'Cliente') + '</div>' +
-            '<div class="dett">' + esc(descRighe(o)) + '</div>' +
-            (o.ritiro ? '<div class="dett">Ritiro: ' + dLocDaKey(o.ritiro) + (o.ora ? ' · ore ' + esc(o.ora) : '') + '</div>' : '') +
-            (o.note ? '<div class="dett">Note: ' + esc(o.note) + '</div>' : '') +
-            (tot ? '<div class="dett">Totale: ' + euro(tot) + '</div>' : '') +
-          '</div></div>' +
-          '<div class="azioni">' +
-            wa +
-            '<button class="btn mini rosso" onclick="eliminaOrdine(\'' + o.id + '\')">Elimina</button>' +
-          '</div></div>';
-      }).join('')
-    : '<p class="muted">Nessun ordine' + (filtroOrdini !== 'tutti' ? ' con stato "' + filtroOrdini + '"' : '') + '.</p>';
+  var totGiorno = delGiorno.length + localiGiorno.length;
+  var corpo = totGiorno
+    ? htmlFB + htmlLoc
+    : '<p class="muted">Nessun ordine per ' + dLocDaKey(dataOrdini) + '.</p>';
 
   document.getElementById('v-ordini').innerHTML =
-    '<div class="card"><h3>↗ Ordini completo (Hub Fagotti)</h3>' +
-      '<p class="muted">La gestione ordini avanzata del hub — clienti, incassi, notifiche. Si apre già loggata. Qui sotto resta l\'agenda rapida.</p>' +
-      '<button class="btn oro blocco" onclick="apriApp(state.settings.urlOrdini, true)">↗ Apri Ordini Fagotti completa</button>' +
+    '<button class="btn oro blocco" style="margin:0 0 12px" onclick="apriApp(state.settings.urlOrdini, true)">↗ Apri Ordini Fagotti completa</button>' +
+    '<div class="card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<h3 style="margin:0">🧾 Agenda del giorno</h3>' + statoFB +
+      '</div>' +
+      '<div class="riga">' +
+        '<button class="btn sec fisso" onclick="spostaGiorno(-1)">←</button>' +
+        '<input type="date" value="' + dataOrdini + '" onchange="dataOrdini=this.value;render()">' +
+        '<button class="btn sec fisso" onclick="spostaGiorno(1)">→</button>' +
+      '</div>' +
+      '<div class="riga" style="margin-top:8px">' +
+        '<button class="btn sec" onclick="dataOrdini=oggiKey();render()">Oggi</button>' +
+        '<span class="badge ' + (totGiorno ? 'ok' : 'grigio') + ' fisso">' + totGiorno + ' ordini</span>' +
+      '</div>' +
     '</div>' +
-    '<div class="subtabs">' + filtri + '</div>' +
-    '<div class="card"><h3>🧾 Ordini</h3><p class="muted" style="margin-bottom:8px">Tocca lo stato per avanzare: nuovo → confermato → in preparazione → pronto → ritirato</p>' + html + '</div>' +
-    '<div class="card"><h3>✍️ Nuovo ordine manuale</h3>' +
+    '<div class="card"><h3>' + dLocDaKey(dataOrdini) + '</h3>' + corpo + '</div>' +
+    '<div class="card"><h3>✍️ Nuovo ordine rapido (Suite)</h3>' +
+      '<p class="muted" style="margin-bottom:8px">Per ordini completi con torte, pesi e prezzi usa l\'app Ordini qui sopra.</p>' +
       '<label class="lbl">Cliente</label><input type="text" id="omCliente" placeholder="Nome cliente">' +
       '<label class="lbl">Telefono (per WhatsApp)</label><input type="tel" id="omTel" placeholder="3XX XXXXXXX">' +
       '<label class="lbl">Descrizione</label><textarea id="omDesc" placeholder="Es. Torta Sacher 1kg, scritta Auguri Marco"></textarea>' +
       '<div class="riga">' +
-        '<div><label class="lbl">Data ritiro</label><input type="date" id="omRitiro"></div>' +
+        '<div><label class="lbl">Data ritiro</label><input type="date" id="omRitiro" value="' + dataOrdini + '"></div>' +
         '<div><label class="lbl">Ora</label><input type="time" id="omOra" value="17:00"></div>' +
       '</div>' +
       '<label class="lbl">Totale € (opzionale)</label><input type="number" id="omTot" step="0.5" min="0" placeholder="0.00">' +
       '<button class="btn blocco" onclick="nuovoOrdineManuale()">Salva ordine</button>' +
     '</div>';
+}
+
+function spostaGiorno(delta){
+  var p = dataOrdini.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + delta);
+  dataOrdini = dKey(d);
+  render();
+}
+
+function waTelefono(tel, cliente){
+  var testo = compilaTemplate(state.bot.templates[0].testo, { cliente:cliente, ritiro:dataOrdini });
+  window.open('https://wa.me/' + telWa(tel) + '?text=' + encodeURIComponent(testo), '_blank');
 }
 
 function nuovoOrdineManuale(){
@@ -1141,6 +1283,42 @@ function compilaTemplate(testo, ordine){
 }
 
 function renderBot(){
+  var c = state.botCat;
+
+  // ── Listino torte del bot ──
+  var listino = c.listino.length
+    ? c.listino.map(function(t, i){
+        return '<div class="turno-riga">' +
+          '<label class="all-check fisso" style="border:none;padding:0;background:none">' +
+            '<input type="checkbox"' + (t.attivo ? ' checked' : '') + ' onchange="togTorta(' + i + ')"></label>' +
+          '<div class="dip"' + (t.attivo ? '' : ' style="color:#9ca3af;text-decoration:line-through"') + '>' + esc(t.nome) + '</div>' +
+          '<input type="number" class="bc-prezzo" data-i="' + i + '" step="0.5" min="0" value="' + (t.prezzoKg||0) + '" style="flex:0 0 90px" title="€/kg">' +
+          '<button class="btn mini rosso fisso" onclick="rimuoviTorta(' + i + ')">✕</button>' +
+          '</div>';
+      }).join('')
+    : '<p class="muted">Nessuna torta nel listino.</p>';
+
+  var attive = c.listino.filter(function(t){ return t.attivo; }).length;
+
+  // ── Chip liste semplici ──
+  function chips(campo, arr){
+    return (arr||[]).map(function(v, i){
+      return '<span class="chip">' + esc(v) +
+        '<button onclick="rimuoviVoceBot(\'' + campo + '\', ' + i + ')">✕</button></span>';
+    }).join('') || '<span class="muted">vuoto</span>';
+  }
+
+  var statoPub = !db ? '<span class="badge err">Firebase offline</span>'
+    : (LIVE.errore ? '<span class="badge err">permessi Firestore</span>' : '<span class="badge ok">● collegato</span>');
+
+  var linkBot = c.pageUrl
+    ? '<div class="azioni">' +
+        '<button class="btn oro" style="flex:1" onclick="copiaTesto(\'' + esc(c.pageUrl) + '\')">📋 Copia link bot</button>' +
+        '<button class="btn sec" style="flex:1" onclick="window.open(\'' + esc(c.pageUrl) + '\',\'_blank\')">👁️ Apri bot</button>' +
+      '</div>'
+    : '<p class="muted">Apri almeno una volta WaFagotti online: pubblicherà da solo il suo indirizzo qui.</p>';
+
+  // ── Template messaggi (invariato) ──
   var tpl = state.bot.templates.map(function(t){
     return '<div class="item">' +
       '<div class="nome">' + esc(t.nome) + '</div>' +
@@ -1155,18 +1333,159 @@ function renderBot(){
   var tplOpts = state.bot.templates.map(function(t){
     return '<option value="' + t.id + '">' + esc(t.nome) + '</option>';
   }).join('');
-
   var invio = ordiniAperti.length
     ? '<label class="lbl">Ordine</label><select id="botOrdine">' + ordOpts + '</select>' +
       '<label class="lbl">Template</label><select id="botTpl">' + tplOpts + '</select>' +
       '<button class="btn verde blocco" onclick="botInvia()">💬 Apri WhatsApp</button>'
-    : '<p class="muted">Nessun ordine aperto con numero di telefono. I placeholder disponibili sono {cliente}, {data}, {attivita}.</p>';
+    : '<p class="muted">Nessun ordine aperto con numero di telefono.</p>';
 
   document.getElementById('v-bot').innerHTML =
-    '<div class="card"><h3>🤖 Invio rapido</h3>' + invio + '</div>' +
+    '<div class="card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<h3 style="margin:0">📱 Numero WhatsApp Fagotti</h3>' + statoPub +
+      '</div>' +
+      '<p class="muted" style="margin-bottom:8px">È il numero che riceve i messaggi dal bot: il tasto "Parla con la pasticceria" e l\'invio ordine puntano qui.</p>' +
+      '<input type="tel" id="bcWa" value="' + esc(c.waNumber) + '" placeholder="39 06 1234567 (con prefisso)">' +
+      '<label class="lbl">Link allo Shop (opzionale, mostrato nel bot)</label>' +
+      '<input type="text" id="bcShop" value="' + esc(c.shopUrl) + '" placeholder="https://...">' +
+      '<button class="btn oro blocco" onclick="pubblicaCatalogo()">🚀 Pubblica sul bot</button>' +
+    '</div>' +
+    '<div class="card"><h3>🔗 Link del bot per i clienti</h3>' + linkBot + '</div>' +
+    '<div class="card">' +
+      '<h3>🎂 Torte del bot <span class="badge ' + (attive?'ok':'grigio') + '">' + attive + ' attive</span></h3>' +
+      '<p class="muted" style="margin-bottom:8px">Spunta = visibile nel bot. Il prezzo è al kg.</p>' +
+      listino +
+      '<div class="riga" style="margin-top:10px">' +
+        '<input type="text" id="bcNuovaTorta" placeholder="Nuova torta" style="flex:2">' +
+        '<input type="number" id="bcNuovoPrezzo" step="0.5" min="0" placeholder="€/kg">' +
+        '<button class="btn mini fisso" onclick="aggiungiTorta()">+ Torta</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card"><h3>⚙️ Parametri bot</h3>' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Costo consegna €</label><input type="number" id="bcCons" step="1" min="0" value="' + (c.costoConsegna||0) + '"></div>' +
+        '<div><label class="lbl">Kg a persona</label><input type="number" id="bcKgP" step="0.01" min="0" value="' + (c.kgPersona||0.15) + '"></div>' +
+      '</div>' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Stima min %</label><input type="number" id="bcMin" step="1" value="' + (c.stimaMin||85) + '"></div>' +
+        '<div><label class="lbl">Stima max %</label><input type="number" id="bcMax" step="1" value="' + (c.stimaMax||115) + '"></div>' +
+      '</div>' +
+      '<label class="lbl">Farciture</label><div>' + chips('farciture', c.farciture) + '</div>' +
+      '<div class="riga" style="margin-top:6px"><input type="text" id="bcNuovaFarc" placeholder="Nuova farcitura">' +
+        '<button class="btn mini fisso" onclick="aggiungiVoceBot(\'farciture\', \'bcNuovaFarc\')">+</button></div>' +
+      '<label class="lbl">Decorazioni</label><div>' + chips('decorazioni', c.decorazioni) + '</div>' +
+      '<div class="riga" style="margin-top:6px"><input type="text" id="bcNuovaDec" placeholder="Nuova decorazione">' +
+        '<button class="btn mini fisso" onclick="aggiungiVoceBot(\'decorazioni\', \'bcNuovaDec\')">+</button></div>' +
+      '<label class="lbl">Orari di ritiro</label><div>' + chips('orari', c.orari) + '</div>' +
+      '<div class="riga" style="margin-top:6px"><input type="text" id="bcNuovoOrario" placeholder="Es. 17:00">' +
+        '<button class="btn mini fisso" onclick="aggiungiVoceBot(\'orari\', \'bcNuovoOrario\')">+</button></div>' +
+      '<button class="btn oro blocco" onclick="pubblicaCatalogo()">🚀 Pubblica sul bot</button>' +
+    '</div>' +
+    '<div class="card"><h3>💬 Invio rapido a un cliente</h3>' + invio + '</div>' +
     '<div class="card"><h3>📝 Template messaggi</h3>' +
       '<p class="muted" style="margin-bottom:8px">Placeholder: {cliente} · {data} · {attivita}</p>' + tpl +
     '</div>';
+}
+
+/* CRITICO: salva SEMPRE i campi del form prima di ridisegnare, altrimenti
+   il numero WhatsApp appena digitato verrebbe perso a ogni spunta. */
+function flushBotForm(){
+  var g = function(id){ var e = document.getElementById(id); return e ? e.value : null; };
+  var c = state.botCat;
+  var v;
+  if((v = g('bcWa')) !== null) c.waNumber = v.trim();
+  if((v = g('bcShop')) !== null) c.shopUrl = v.trim();
+  if((v = g('bcCons')) !== null && v !== '') c.costoConsegna = Number(v);
+  if((v = g('bcKgP')) !== null && v !== '') c.kgPersona = Number(v);
+  if((v = g('bcMin')) !== null && v !== '') c.stimaMin = Number(v);
+  if((v = g('bcMax')) !== null && v !== '') c.stimaMax = Number(v);
+  document.querySelectorAll('.bc-prezzo').forEach(function(inp){
+    var i = Number(inp.dataset.i);
+    if(c.listino[i]) c.listino[i].prezzoKg = Number(inp.value) || 0;
+  });
+  salva();
+}
+
+function togTorta(i){
+  flushBotForm();
+  if(!state.botCat.listino[i]) return;
+  state.botCat.listino[i].attivo = !state.botCat.listino[i].attivo;
+  salva(); renderBot();
+}
+
+function rimuoviTorta(i){
+  flushBotForm();
+  state.botCat.listino.splice(i, 1);
+  salva(); renderBot();
+}
+
+function aggiungiTorta(){
+  flushBotForm();
+  var nome = document.getElementById('bcNuovaTorta').value.trim();
+  var pr = Number(document.getElementById('bcNuovoPrezzo').value) || 30;
+  if(!nome){ toast('Scrivi il nome della torta'); return; }
+  state.botCat.listino.push({ nome:nome, prezzoKg:pr, attivo:true });
+  salva(); renderBot(); toast('Torta aggiunta');
+}
+
+function aggiungiVoceBot(campo, inputId){
+  flushBotForm();
+  var v = document.getElementById(inputId).value.trim();
+  if(!v){ toast('Campo vuoto'); return; }
+  state.botCat[campo] = state.botCat[campo] || [];
+  state.botCat[campo].push(v);
+  salva(); renderBot();
+}
+
+function rimuoviVoceBot(campo, i){
+  flushBotForm();
+  state.botCat[campo].splice(i, 1);
+  salva(); renderBot();
+}
+
+function copiaTesto(t){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t);
+    toast('Link copiato');
+  }catch(e){ toast('Copia manualmente: ' + t); }
+}
+
+/* Pubblica su bot_app/catalogo con merge:true — non tocca pageUrl che
+   WaFagotti pubblica da solo. Verifica la scrittura rileggendo il doc. */
+function pubblicaCatalogo(){
+  flushBotForm();
+  if(!db){ toast('Firebase non disponibile'); return; }
+  var c = state.botCat;
+  var wa = String(c.waNumber||'').replace(/\D/g, '');
+  if(!wa){ toast('Inserisci il numero WhatsApp'); return; }
+
+  var payload = {
+    waNumber: wa,
+    shopUrl: c.shopUrl || '',
+    costoConsegna: Number(c.costoConsegna) || 0,
+    kgPersona: Number(c.kgPersona) || 0.15,
+    stimaMin: Number(c.stimaMin) || 85,
+    stimaMax: Number(c.stimaMax) || 115,
+    listino: c.listino.filter(function(t){ return t.attivo && t.nome; })
+      .map(function(t){ return { nome:t.nome, prezzoKg:Number(t.prezzoKg) || 30 }; }),
+    farciture: c.farciture || [],
+    decorazioni: c.decorazioni || [],
+    orari: c.orari || [],
+    aggiornato: Date.now()
+  };
+
+  db.collection('bot_app').doc('catalogo').set(payload, { merge:true })
+    .then(function(){ return db.collection('bot_app').doc('catalogo').get(); })
+    .then(function(doc){
+      var d = doc.data() || {};
+      if(d.waNumber === wa){
+        evento('sistema', 'Catalogo bot pubblicato: numero ' + wa + ', ' + payload.listino.length + ' torte');
+        toast('✅ Pubblicato — numero ' + wa + ' verificato');
+      }else{
+        toast('⚠️ Scritto ma non verificato, riprova');
+      }
+    })
+    .catch(function(e){ toast('Errore: ' + e.message); });
 }
 
 function salvaTemplate(id, testo){
@@ -1297,6 +1616,9 @@ function inviaListaWa(fid){
    IMPOSTAZIONI
    ============================================================ */
 function linkCliente(){
+  if(state.settings.dest === 'bot'){
+    return state.botCat.pageUrl || '(apri una volta WaFagotti online per generare il link)';
+  }
   return location.href.split('#')[0] + '#' + (state.settings.dest || 'negozio');
 }
 
@@ -1313,8 +1635,9 @@ function renderImpostazioni(){
       '<p class="muted">Condividi questo link (Instagram, WhatsApp, Google): il cliente vede solo la pagina scelta, senza il gestionale.</p>' +
       '<label class="lbl">Il link porta a</label>' +
       '<select id="setDest" onchange="state.settings.dest=this.value;salva();render()">' +
-        '<option value="negozio"' + (state.settings.dest === 'negozio' ? ' selected' : '') + '>🛍️ Pagina Shop</option>' +
-        '<option value="ordina"' + (state.settings.dest === 'ordina' ? ' selected' : '') + '>🎂 Pagina Ordina Torta</option>' +
+        '<option value="negozio"' + (state.settings.dest === 'negozio' ? ' selected' : '') + '>🛍️ Pagina Shop (interna Suite)</option>' +
+        '<option value="ordina"' + (state.settings.dest === 'ordina' ? ' selected' : '') + '>🎂 Pagina Ordina Torta (interna Suite)</option>' +
+        '<option value="bot"' + (state.settings.dest === 'bot' ? ' selected' : '') + '>🤖 Bot WhatsApp torte (WaFagotti)</option>' +
       '</select>' +
       '<label class="lbl">Link</label>' +
       '<input type="text" id="setLink" readonly value="' + esc(linkCliente()) + '">' +
