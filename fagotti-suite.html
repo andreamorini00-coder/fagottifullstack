@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fagotti Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111827;
+  --viola:#7c3aed;
+  --viola-soft:#ede9fe;
+  --oro:#c9a84c;
+  --oro-soft:#faf3e0;
+  --paper:#faf8f3;
+  --card:#ffffff;
+  --line:#e5e7eb;
+  --grigio:#6b7280;
+  --ok:#16a34a;
+  --ok-soft:#dcfce7;
+  --warn:#d97706;
+  --warn-soft:#fef3c7;
+  --err:#dc2626;
+  --err-soft:#fee2e2;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  padding-bottom:70px;
+}
+input,select,textarea,button{font-family:'DM Mono',monospace;font-size:14px}
+h1,h2,h3,h4{font-family:'Bricolage Grotesque',sans-serif}
+
+/* ---------- Header ---------- */
+header{
+  background:var(--ink);
+  color:#fff;
+  padding:14px 16px 10px;
+  position:sticky;top:0;z-index:50;
+}
+header .brand{display:flex;align-items:center;justify-content:space-between}
+header .brand h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
+header .brand h1 span{color:var(--oro)}
+header .brand .sub{font-family:'DM Mono',monospace;font-size:11px;color:#9ca3af}
+.tabbar{
+  display:flex;gap:6px;overflow-x:auto;margin-top:10px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.tabbar::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;background:transparent;color:#d1d5db;border:1px solid #374151;
+  border-radius:999px;padding:7px 13px;font-size:12.5px;cursor:pointer;white-space:nowrap;
+}
+.tab.active{background:var(--viola);border-color:var(--viola);color:#fff;font-weight:500}
+
+/* ---------- Layout ---------- */
+main{max-width:760px;margin:0 auto;padding:16px}
+.view{display:none}
+.view.show{display:block}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px;margin-bottom:12px;
+}
+.card h3{font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.muted{color:var(--grigio);font-size:12.5px}
+.riga{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.riga>*{flex:1;min-width:110px}
+.riga>.fisso{flex:0 0 auto;min-width:0}
+
+/* ---------- Controls ---------- */
+input[type=text],input[type=tel],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--ink);
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--viola-soft);border-color:var(--viola)}
+textarea{resize:vertical;min-height:70px}
+label.lbl{display:block;font-size:11.5px;color:var(--grigio);margin:8px 0 4px;font-family:'DM Mono',monospace}
+.btn{
+  background:var(--viola);color:#fff;border:none;border-radius:8px;
+  padding:10px 14px;cursor:pointer;font-size:13.5px;font-weight:500;
+}
+.btn:active{transform:scale(.98)}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.oro{background:var(--oro);color:var(--ink)}
+.btn.rosso{background:var(--err-soft);color:var(--err)}
+.btn.verde{background:var(--ok);color:#fff}
+.btn.mini{padding:6px 10px;font-size:12px}
+.btn.blocco{width:100%;margin-top:8px}
+
+/* ---------- Badge & chips ---------- */
+.badge{
+  display:inline-block;font-family:'DM Mono',monospace;font-size:10.5px;
+  padding:3px 8px;border-radius:999px;background:var(--viola-soft);color:var(--viola);
+}
+.badge.oro{background:var(--oro-soft);color:#8a6d1f}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.err{background:var(--err-soft);color:var(--err)}
+.badge.grigio{background:#f3f4f6;color:var(--grigio)}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;background:var(--viola-soft);color:var(--viola);
+  border-radius:999px;padding:4px 10px;font-size:12px;font-family:'DM Mono',monospace;margin:2px 3px 2px 0;
+}
+.chip.off{background:#f3f4f6;color:#9ca3af;text-decoration:line-through}
+.chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;padding:0}
+
+/* ---------- KPI ---------- */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.kpi{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px;cursor:pointer;
+}
+.kpi .num{font-size:26px;font-weight:800;font-family:'DM Mono',monospace}
+.kpi .num.viola{color:var(--viola)}
+.kpi .num.oro{color:var(--oro)}
+.kpi .lab{font-size:11.5px;color:var(--grigio);margin-top:2px}
+
+/* ---------- Feed eventi ---------- */
+.evento{
+  display:flex;gap:10px;padding:10px 2px;border-bottom:1px dashed var(--line);align-items:flex-start;
+}
+.evento:last-child{border-bottom:none}
+.evento .ico{
+  flex:0 0 34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;background:var(--viola-soft);
+}
+.evento .ico.oro{background:var(--oro-soft)}
+.evento .ico.ok{background:var(--ok-soft)}
+.evento .ico.err{background:var(--err-soft)}
+.evento .txt{font-size:13.5px;line-height:1.35}
+.evento .ora{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--grigio);margin-top:2px}
+
+/* ---------- Liste generiche ---------- */
+.item{
+  border:1px solid var(--line);border-radius:var(--r);padding:11px;margin-bottom:9px;background:#fff;
+}
+.item .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.item .nome{font-weight:700;font-size:14.5px}
+.item .dett{font-size:12.5px;color:var(--grigio);margin-top:3px;font-family:'DM Mono',monospace}
+.item .azioni{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+
+/* ---------- Turni ---------- */
+.turno-riga{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.turno-riga:last-child{border-bottom:none}
+.turno-riga .dip{flex:1;font-weight:600;font-size:14px}
+.turno-riga select{flex:0 0 150px}
+.legenda{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+
+/* ---------- Sub-tabs (HACCP) ---------- */
+.subtabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+.subtab{
+  background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 12px;
+  font-size:12.5px;cursor:pointer;white-space:nowrap;
+}
+.subtab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ---------- Allergeni ---------- */
+.all-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
+.all-check{
+  display:flex;align-items:center;gap:7px;font-size:12.5px;padding:7px 9px;
+  border:1px solid var(--line);border-radius:8px;cursor:pointer;background:#fff;
+}
+.all-check input{width:auto}
+.all-check.on{border-color:var(--viola);background:var(--viola-soft)}
+
+/* ---------- Vista cliente ---------- */
+body.cliente{padding-bottom:110px}
+.cliente-hero{
+  background:var(--ink);color:#fff;padding:26px 18px;text-align:center;
+}
+.cliente-hero h1{font-size:24px;font-weight:800}
+.cliente-hero h1 span{color:var(--oro)}
+.cliente-hero p{color:#9ca3af;font-size:13px;margin-top:4px;font-family:'DM Mono',monospace}
+.prodotto-card{
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;
+}
+.prodotto-card .pnome{font-weight:800;font-size:16.5px}
+.prodotto-card .pprezzo{font-family:'DM Mono',monospace;color:var(--viola);font-weight:500;font-size:15px}
+.gusti{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.gusto{
+  border:1.5px solid var(--line);border-radius:999px;padding:6px 13px;font-size:12.5px;
+  cursor:pointer;background:#fff;font-family:'DM Mono',monospace;
+}
+.gusto.sel{border-color:var(--viola);background:var(--viola-soft);color:var(--viola);font-weight:500}
+.qta-box{display:flex;align-items:center;gap:10px}
+.qta-box button{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;
+  font-size:17px;cursor:pointer;
+}
+.qta-box .q{font-family:'DM Mono',monospace;font-weight:500;min-width:22px;text-align:center}
+.carrello-bar{
+  position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;
+  padding:13px 16px;display:flex;justify-content:space-between;align-items:center;z-index:60;
+}
+.carrello-bar .tot{font-family:'DM Mono',monospace;font-size:15px}
+footer.firma{
+  text-align:center;padding:20px;font-family:'DM Mono',monospace;font-size:10.5px;color:#9ca3af;
+}
+
+/* ---------- Login ---------- */
+#login{
+  position:fixed;inset:0;background:var(--ink);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;
+}
+#login.hidden{display:none}
+#login h1{color:#fff;font-size:26px;font-weight:800}
+#login h1 span{color:var(--oro)}
+#login input{max-width:280px;text-align:center;font-size:16px;padding:12px}
+#login .btn{max-width:280px;width:100%;padding:12px;font-size:15px}
+#login .lerr{color:#fca5a5;font-family:'DM Mono',monospace;font-size:12px;min-height:16px}
+
+/* ---------- Toast ---------- */
+#toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;
+  font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99;
+  font-family:'DM Mono',monospace;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;
+}
+#toast.on{opacity:1}
+
+/* ---------- Stampa etichetta ---------- */
+#printArea{display:none}
+@media print{
+  body>*:not(#printArea){display:none !important}
+  #printArea{display:block;padding:10mm}
+  .etichetta{
+    border:2px solid #000;border-radius:6px;padding:8mm;max-width:110mm;font-family:sans-serif;
+  }
+  .etichetta h2{font-size:16pt;margin-bottom:4mm}
+  .etichetta .ingr{font-size:9pt;margin-bottom:3mm}
+  .etichetta .allg{font-size:10pt;font-weight:bold}
+  .etichetta .ditta{font-size:8pt;margin-top:4mm;color:#333}
+}
+@media(min-width:640px){
+  .kpi-grid{grid-template-columns:repeat(4,1fr)}
+  .all-grid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div id="login" class="hidden">
+  <h1>Fagotti <span>Suite</span></h1>
+  <input type="password" id="loginPwd" placeholder="Password" autocomplete="off">
+  <div class="lerr" id="loginErr"></div>
+  <button class="btn oro" onclick="doLoginSuite()">Entra →</button>
+</div>
+
+<header id="hdr">
+  <div class="brand">
+    <h1>Fagotti <span>Suite</span></h1>
+    <div class="sub" id="hdrData"></div>
+  </div>
+  <nav class="tabbar" id="tabbar">
+    <button class="tab active" data-v="dashboard">📊 Dashboard</button>
+    <button class="tab" data-v="turni">📅 Turni</button>
+    <button class="tab" data-v="ordini">🧾 Ordini</button>
+    <button class="tab" data-v="shop">🛍️ Shop</button>
+    <button class="tab" data-v="allergeni">⚠️ Allergeni · HACCP</button>
+    <button class="tab" data-v="bot">🤖 Bot</button>
+    <button class="tab" data-v="fornitori">🚚 Fornitori</button>
+    <button class="tab" data-v="impostazioni">⚙️ Impostazioni</button>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="view show" id="v-dashboard"></section>
+  <section class="view" id="v-turni"></section>
+  <section class="view" id="v-ordini"></section>
+  <section class="view" id="v-shop"></section>
+  <section class="view" id="v-allergeni"></section>
+  <section class="view" id="v-bot"></section>
+  <section class="view" id="v-fornitori"></section>
+  <section class="view" id="v-impostazioni"></section>
+  <section class="view" id="v-cliente"></section>
+</main>
+
+<div id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   WorkMor Suite v1 — HTML standalone, vanilla JS, localStorage
+   Chiave storage: workmor_suite_v1 (nuova, nessun conflitto)
+   ============================================================ */
+
+var KEY = 'fagotti_suite_v1';
+
+var ALLERGENI = [
+  'Glutine','Crostacei','Uova','Pesce','Arachidi','Soia','Latte',
+  'Frutta a guscio','Sedano','Senape','Sesamo','Solfiti','Lupini','Molluschi'
+];
+
+var TURNI_CODICI = {
+  '':  '— nessuno',
+  'M': 'M · Mattina',
+  'P': 'P · Pomeriggio',
+  'S': 'S · Sera',
+  'SP':'SP · Spezzato',
+  'R': 'R · Riposo',
+  'F': 'F · Ferie'
+};
+
+var PUNTI_TEMP = ['Frigo 1','Frigo 2','Congelatore','Abbattitore','Vetrina refrigerata','Laboratorio'];
+
+var VOCI_SANIF = ['Piani di lavoro','Attrezzature e utensili','Impastatrice / planetaria','Frigoriferi e vetrine','Pavimenti laboratorio','Servizi igienici'];
+
+var STATI_ORDINE = ['nuovo','confermato','in preparazione','pronto','ritirato'];
+
+/* ---- Dati Fagotti importati da fagotti-allergeni + WaFagotti + ordini ---- */
+var SEED_PRODOTTI = [{"id": "sd0001", "nome": "Tiramisù classico", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Mascarpone, uova fresche, zucchero semolato, savoiardi (farina di frumento, uova, zucchero), caffè espresso, cacao amaro", "attivo": true}, {"id": "sd0002", "nome": "Millefoglie fragole", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, acqua, sale, latte, uova, zucchero, vaniglia, panna fresca, fragole fresche", "attivo": true}, {"id": "sd0003", "nome": "Sacher", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, cioccolato fondente 70%, burro, uova, zucchero, cacao amaro, marmellata di albicocche, panna fresca", "attivo": true}, {"id": "sd0004", "nome": "Cheesecake", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Biscotti secchi (farina di frumento, zucchero, burro), burro, ricotta, panna fresca, uova, zucchero, succo di limone, vaniglia, gelatina", "attivo": true}, {"id": "sd0005", "nome": "Red Velvet", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, latte, zucchero, cacao, bicarbonato, aceto, formaggio spalmabile, panna fresca, zucchero a velo", "attivo": true}, {"id": "sd0006", "nome": "Charlotte limone", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd0007", "nome": "Tre cioccolati", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Cioccolato fondente 70%, cioccolato al latte, cioccolato bianco, panna fresca, burro, uova, zucchero, farina di frumento, gelatina", "attivo": true}, {"id": "sd0008", "nome": "Profitterole", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd0009", "nome": "Montblanc", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Castagne, panna fresca, zucchero, vaniglia, albume d'uovo, farina di frumento, burro, uova", "attivo": true}, {"id": "sd000a", "nome": "Meringata frutti bosco", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000b", "nome": "Pavlova", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [2, 6, 11], "ingredienti": "Albume d'uovo, zucchero semolato, amido di mais, aceto di vino bianco, panna fresca 35%, frutta fresca di stagione", "attivo": true}, {"id": "sd000c", "nome": "Saint Honorè", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000d", "nome": "Lemon tart", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, zucchero, succo di limone, scorza di limone, panna fresca, albume d'uovo", "attivo": true}, {"id": "sd000e", "nome": "Black Forest", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000f", "nome": "Cream tart", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000g", "nome": "Afrodite", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000h", "nome": "Diplomatica", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000i", "nome": "Dolce castagne", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000j", "nome": "Kinder", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000k", "nome": "Mandarinoir", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000l", "nome": "Marika", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000m", "nome": "Millefoglie classico", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, acqua, sale, latte, uova, zucchero, vaniglia, panna fresca", "attivo": true}, {"id": "sd000n", "nome": "Mimosa", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000o", "nome": "Moretta", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000p", "nome": "Ohana", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000q", "nome": "Pastiera", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000r", "nome": "Serendipity", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000s", "nome": "Settembrina", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000t", "nome": "Sveva", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000u", "nome": "Tiramisù fragole", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Mascarpone, uova fresche, zucchero semolato, savoiardi (farina di frumento, uova, zucchero), fragole fresche, succo di limone, cacao amaro", "attivo": true}, {"id": "sd000v", "nome": "Ugly cake", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000w", "nome": "Zuccotto", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000x", "nome": "Panettone artigianale", "prezzo": 28, "um": "pz", "cat": "negozio", "varianti": [{"nome": "750g Classico", "disp": true}, {"nome": "750g Cioccolato", "disp": true}, {"nome": "1kg Classico", "disp": true}, {"nome": "1kg Cioccolato", "disp": true}], "allergeni": [0, 2, 5, 6, 7, 11], "ingredienti": "Farina di frumento, burro, uova fresche, zucchero, uvetta, canditi, lievito madre, latte, mandorle, marsala, lecitina di soia", "attivo": true}, {"id": "sd000y", "nome": "Scatola pasticcini misti", "prezzo": 18, "um": "pz", "cat": "negozio", "varianti": [{"nome": "12 pz", "disp": true}, {"nome": "24 pz", "disp": true}], "allergeni": [0, 2, 6, 7], "ingredienti": "Farina di frumento, burro, uova, latte, zucchero, panna, mandorle, nocciole, cioccolato", "attivo": true}, {"id": "sd000z", "nome": "Frollini artigianali", "prezzo": 6.5, "um": "pz", "cat": "negozio", "varianti": [{"nome": "Burro", "disp": true}, {"nome": "Cacao", "disp": true}], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova, zucchero a velo, sale, vaniglia, lievito chimico", "attivo": true}, {"id": "sd0010", "nome": "Cornetto vuoto", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia", "attivo": true}, {"id": "sd0011", "nome": "Cornetto alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, crema pasticciera (latte, uova, zucchero, farina, vaniglia)", "attivo": true}, {"id": "sd0012", "nome": "Cornetto al cioccolato", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, crema al cioccolato (cacao, latte, zucchero, burro)", "attivo": true}, {"id": "sd0013", "nome": "Cornetto alla marmellata", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, marmellata di albicocche", "attivo": true}, {"id": "sd0014", "nome": "Maritozzo con panna", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia, panna fresca 35%, zucchero a velo", "attivo": true}, {"id": "sd0015", "nome": "Bomba alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, olio di semi, crema pasticciera (latte, uova, zucchero, farina, vaniglia), zucchero a velo", "attivo": true}, {"id": "sd0016", "nome": "Ciambella fritta", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, olio di semi di girasole", "attivo": true}, {"id": "sd0017", "nome": "Bottoncini salati", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6, 10], "ingredienti": "Farina di frumento, burro, uova, sale, lievito chimico, formaggio, semi di sesamo", "attivo": true}, {"id": "sd0018", "nome": "Bignè alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, acqua, sale, latte, zucchero, vaniglia", "attivo": true}, {"id": "sd0019", "nome": "Tartelletta alla frutta", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, zucchero, sale, crema pasticciera (latte, uova, zucchero, farina, vaniglia), frutta fresca di stagione, gelatina", "attivo": true}, {"id": "sd001a", "nome": "Cannoncino alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, sale, acqua, panna fresca, zucchero, vaniglia", "attivo": true}, {"id": "sd001b", "nome": "Caprese", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [2, 6, 7], "ingredienti": "Mandorle, cioccolato fondente, burro, uova, zucchero, lievito", "attivo": true}, {"id": "sd001c", "nome": "Torta Gelato", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Pan di spagna (farina di frumento, uova, zucchero), gelato artigianale (latte, panna, zucchero, uova), panna fresca, biscotti", "attivo": true}, {"id": "sd001d", "nome": "Pan di Spagna", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2], "ingredienti": "Uova fresche, zucchero semolato, farina di frumento tipo 00, fecola di patate, vaniglia naturale", "attivo": true}, {"id": "sd001e", "nome": "Pasta frolla", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova, zucchero a velo, sale, vaniglia, lievito chimico", "attivo": true}, {"id": "sd001f", "nome": "Pasta sfoglia", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 6], "ingredienti": "Farina di frumento tipo 00, burro, acqua, sale", "attivo": true}, {"id": "sd001g", "nome": "Crema pasticciera", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Latte intero, uova fresche, zucchero semolato, farina di frumento, vaniglia naturale", "attivo": true}, {"id": "sd001h", "nome": "Crema al burro", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [2, 6], "ingredienti": "Burro, zucchero a velo, uova, vaniglia, latte", "attivo": true}, {"id": "sd001i", "nome": "Impasto bombe/krapfen", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero, lievito di birra, sale", "attivo": true}];
+var SEED_FORNITORI = [{"id": "sd001j", "nome": "Doreca", "tel": "", "lista": [], "storico": [], "catalogo": ["Coca-Cola 33cl (cartone)"]}, {"id": "sd001k", "nome": "Illy", "tel": "", "lista": [], "storico": [], "catalogo": ["Caffè decaffeinato (kg)"]}, {"id": "sd001l", "nome": "Molino Rossi", "tel": "", "lista": [], "storico": [], "catalogo": ["Farina 00 (sacco 25kg)"]}, {"id": "sd001m", "nome": "Latteria Val d'Oro", "tel": "", "lista": [], "storico": [], "catalogo": ["Burro (panetto 1kg)", "Uova fresche (plateau 30)"]}];
+function seedProdotti(){ return JSON.parse(JSON.stringify(SEED_PRODOTTI)); }
+function seedFornitori(){ return JSON.parse(JSON.stringify(SEED_FORNITORI)); }
+function numeroOrdine(){ return 'ORD-' + String(Math.floor(Math.random()*9000) + 1000); }
+function doLoginSuite(){
+  var pwd = document.getElementById('loginPwd').value;
+  if(pwd === (state.settings.pwdApp || 'fagotti2024')){
+    sessionStorage.setItem('fs_auth','1');
+    document.getElementById('login').classList.add('hidden');
+  }else{
+    document.getElementById('loginErr').textContent = 'Password errata.';
+    document.getElementById('loginPwd').value = '';
+  }
+}
+
+function apriApp(url, conLogin){
+  if(!url){ toast('Imposta prima il link in Impostazioni'); return; }
+  var u = url.replace(/\/+$/, '');
+  if(conLogin && state.settings.pwdApp) u += '/?k=' + btoa(state.settings.pwdApp);
+  window.open(u, '_blank');
+}
+
+
+function statoDefault(){
+  return {
+    settings:{ nome:'Pasticceria Fagotti', tel:'', dest:'negozio', pwdApp:'fagotti2024', urlTurni:'https://turni-ferie-tau.vercel.app', urlAllergeni:'https://fagotti-allergeni.vercel.app', urlOrdini:'https://fagotti-ordini.vercel.app' },
+    dipendenti:[],
+    turni:{},                    /* { 'YYYY-MM-DD': { depId: 'M' } } */
+    ordini:[],
+    prodotti: seedProdotti(),
+    fornitori: seedFornitori(),
+    bot:{ templates:[
+      { id:'t1', nome:'Conferma ordine', testo:'Ciao {cliente}! Confermiamo il tuo ordine per il {data}. Grazie da {attivita}!' },
+      { id:'t2', nome:'Ordine pronto',   testo:'Ciao {cliente}! Il tuo ordine è pronto per il ritiro. Ti aspettiamo! — {attivita}' },
+      { id:'t3', nome:'Promemoria ritiro', testo:'Ciao {cliente}, ti ricordiamo il ritiro del tuo ordine il {data}. A presto! — {attivita}' }
+    ]},
+    haccp:{ temp:[], sanif:[], scad:[] },
+    eventi:[]
+  };
+}
+
+var state = carica();
+
+function carica(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(!raw) return statoDefault();
+    var s = JSON.parse(raw);
+    var d = statoDefault();
+    for(var k in d){ if(s[k] === undefined) s[k] = d[k]; }
+    for(var ks in d.settings){ if(s.settings[ks] === undefined) s.settings[ks] = d.settings[ks]; }
+    if(s.settings.urlOrdini === undefined && s.settings.urlHub) s.settings.urlOrdini = s.settings.urlHub;
+    delete s.settings.urlHub;
+    if(!s.bot || !s.bot.templates) s.bot = d.bot;
+    if(!s.haccp) s.haccp = d.haccp;
+    return s;
+  }catch(e){ return statoDefault(); }
+}
+
+function salva(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+/* ---------- Helpers ---------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* Date SEMPRE locali — mai toISOString() */
+function dKey(d){
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function dLocDaKey(k){
+  if(!k) return '';
+  var p = k.split('-');
+  if(p.length !== 3) return k;
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+function oraLoc(ts){
+  var d = new Date(ts);
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') +
+    ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function oggiKey(){ return dKey(new Date()); }
+
+function euro(n){ return Number(n||0).toFixed(2).replace('.',',') + ' €'; }
+
+function telWa(t){
+  var n = String(t||'').replace(/\D/g,'');
+  if(n.length === 10 && n.charAt(0) === '3') n = '39' + n;
+  return n;
+}
+
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.classList.remove('on'); }, 2200);
+}
+
+/* ---------- Eventi (feed dashboard) ---------- */
+function evento(tipo, testo){
+  state.eventi.unshift({ id:uid(), ts:Date.now(), tipo:tipo, testo:testo });
+  if(state.eventi.length > 60) state.eventi.length = 60;
+  salva();
+  if(vistaCorrente === 'dashboard') render();
+}
+
+/* Aggiornamento live tra schede (es. ordine dal link cliente) */
+window.addEventListener('storage', function(e){
+  if(e.key === KEY){
+    state = carica();
+    render();
+  }
+});
+</script>
+<script>
+/* ============================================================
+   NAVIGAZIONE
+   ============================================================ */
+var vistaCorrente = 'dashboard';
+var subHaccp = 'allergeni';
+var modCliente = null;   /* 'negozio' | 'ordina' | null */
+var carrello = [];       /* [{pid, variante, qta}] */
+
+function vai(v){
+  vistaCorrente = v;
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.classList.toggle('active', t.dataset.v === v);
+  });
+  document.querySelectorAll('.view').forEach(function(s){
+    s.classList.toggle('show', s.id === 'v-' + v);
+  });
+  render();
+  window.scrollTo(0,0);
+}
+
+document.getElementById('tabbar').addEventListener('click', function(e){
+  var b = e.target.closest('.tab');
+  if(b) vai(b.dataset.v);
+});
+
+function render(){
+  if(modCliente){ renderCliente(); return; }
+  var fn = {
+    dashboard: renderDashboard,
+    turni: renderTurni,
+    ordini: renderOrdini,
+    shop: renderShop,
+    allergeni: renderAllergeni,
+    bot: renderBot,
+    fornitori: renderFornitori,
+    impostazioni: renderImpostazioni
+  }[vistaCorrente];
+  if(fn) fn();
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  var ok = oggiKey();
+  var turniOggi = state.turni[ok] || {};
+  var alLavoro = 0;
+  for(var id in turniOggi){
+    if(turniOggi[id] && turniOggi[id] !== 'R' && turniOggi[id] !== 'F') alLavoro++;
+  }
+  var nuovi = state.ordini.filter(function(o){ return o.stato === 'nuovo'; }).length;
+  var inLav = state.ordini.filter(function(o){ return o.stato === 'in preparazione'; }).length;
+  var listeAperte = state.fornitori.filter(function(f){ return f.lista && f.lista.length; }).length;
+
+  var icone = { turno:'📅', ordine:'🧾', fornitore:'🚚', haccp:'🌡️', shop:'🛍️', sistema:'⚙️' };
+  var classi = { haccp:'err', fornitore:'oro', ordine:'ok' };
+
+  var feed = state.eventi.length
+    ? state.eventi.map(function(ev){
+        return '<div class="evento">' +
+          '<div class="ico ' + (classi[ev.tipo]||'') + '">' + (icone[ev.tipo]||'•') + '</div>' +
+          '<div><div class="txt">' + esc(ev.testo) + '</div>' +
+          '<div class="ora">' + oraLoc(ev.ts) + '</div></div></div>';
+      }).join('')
+    : '<p class="muted">Nessun evento ancora. Cambi turno, nuovi ordini e liste fornitori inviate compariranno qui.</p>';
+
+  document.getElementById('v-dashboard').innerHTML =
+    '<div class="kpi-grid">' +
+      '<div class="kpi" onclick="vai(\'ordini\')"><div class="num viola">' + nuovi + '</div><div class="lab">Ordini nuovi</div></div>' +
+      '<div class="kpi" onclick="vai(\'ordini\')"><div class="num">' + inLav + '</div><div class="lab">In preparazione</div></div>' +
+      '<div class="kpi" onclick="vai(\'turni\')"><div class="num oro">' + alLavoro + '</div><div class="lab">Al lavoro oggi</div></div>' +
+      '<div class="kpi" onclick="vai(\'fornitori\')"><div class="num">' + listeAperte + '</div><div class="lab">Liste fornitori aperte</div></div>' +
+    '</div>' +
+    '<div class="card"><h3>🔔 Attività recente</h3>' + feed + '</div>';
+}
+
+/* ============================================================
+   TURNI
+   ============================================================ */
+var dataTurni = oggiKey();
+
+function renderTurni(){
+  var giorno = state.turni[dataTurni] || {};
+  var opts = Object.keys(TURNI_CODICI).map(function(c){
+    return '<option value="' + c + '">' + TURNI_CODICI[c] + '</option>';
+  }).join('');
+
+  var righe = state.dipendenti.length
+    ? state.dipendenti.map(function(d){
+        var sel = giorno[d.id] || '';
+        return '<div class="turno-riga">' +
+          '<div class="dip">' + esc(d.nome) + '</div>' +
+          '<select onchange="setTurno(\'' + d.id + '\', this.value)" data-val="' + esc(sel) + '">' + opts + '</select>' +
+          '<button class="btn mini rosso fisso" onclick="rimuoviDip(\'' + d.id + '\')">✕</button>' +
+          '</div>';
+      }).join('')
+    : '<p class="muted">Aggiungi i dipendenti qui sotto per assegnare i turni.</p>';
+
+  var legenda = ['M · Mattina','P · Pomeriggio','S · Sera','SP · Spezzato','R · Riposo','F · Ferie']
+    .map(function(l){ return '<span class="badge grigio">' + l + '</span>'; }).join('');
+
+  document.getElementById('v-turni').innerHTML =
+    '<div class="card"><h3>↗ Turni & Ferie</h3>' +
+      '<p class="muted">Griglia del mese, ferie e stampa PDF nell\'app completa — si apre già loggata con la password della Suite.</p>' +
+      '<button class="btn oro blocco" onclick="apriApp(state.settings.urlTurni, true)">↗ Apri Turni &amp; Ferie completa</button>' +
+    '</div>' +
+    '<div class="card"><h3>📅 Agenda rapida del giorno (locale)</h3>' +
+      '<label class="lbl">Data</label>' +
+      '<input type="date" value="' + dataTurni + '" onchange="dataTurni=this.value;render()">' +
+      '<div style="margin-top:12px">' + righe + '</div>' +
+      '<div class="legenda">' + legenda + '</div>' +
+    '</div>' +
+    '<div class="card"><h3>👤 Nuovo dipendente</h3>' +
+      '<div class="riga"><input type="text" id="nuovoDip" placeholder="Nome dipendente">' +
+      '<button class="btn fisso" onclick="aggiungiDip()">Aggiungi</button></div>' +
+    '</div>';
+
+  /* imposta i valori selezionati (dopo l'inserimento HTML) */
+  document.querySelectorAll('#v-turni .turno-riga select').forEach(function(s){
+    s.value = s.dataset.val;
+  });
+}
+
+function aggiungiDip(){
+  var inp = document.getElementById('nuovoDip');
+  var nome = inp.value.trim();
+  if(!nome){ toast('Inserisci il nome'); return; }
+  state.dipendenti.push({ id:uid(), nome:nome });
+  salva(); render(); toast('Dipendente aggiunto');
+}
+
+function rimuoviDip(id){
+  if(!confirm('Rimuovere il dipendente?')) return;
+  state.dipendenti = state.dipendenti.filter(function(d){ return d.id !== id; });
+  salva(); render();
+}
+
+function setTurno(depId, codice){
+  if(!state.turni[dataTurni]) state.turni[dataTurni] = {};
+  state.turni[dataTurni][depId] = codice;
+  salva();
+  var dip = state.dipendenti.find(function(d){ return d.id === depId; });
+  var nomeT = TURNI_CODICI[codice] || codice;
+  evento('turno', 'Turno aggiornato: ' + (dip ? dip.nome : '?') + ' → ' + nomeT + ' (' + dLocDaKey(dataTurni) + ')');
+  toast('Turno salvato');
+}
+
+/* ============================================================
+   ORDINI
+   ============================================================ */
+var filtroOrdini = 'tutti';
+
+function descRighe(o){
+  if(o.righe && o.righe.length){
+    return o.righe.map(function(r){
+      return r.qta + '× ' + r.nome + (r.variante ? ' (' + r.variante + ')' : '');
+    }).join(', ');
+  }
+  return o.descrizione || '';
+}
+
+function totOrdine(o){
+  if(!o.righe) return 0;
+  return o.righe.reduce(function(t,r){ return t + (r.prezzo||0) * r.qta; }, 0);
+}
+
+function renderOrdini(){
+  var filtri = ['tutti'].concat(STATI_ORDINE).map(function(f){
+    var att = filtroOrdini === f ? ' active' : '';
+    return '<button class="subtab' + att + '" onclick="filtroOrdini=\'' + f + '\';render()">' + f + '</button>';
+  }).join('');
+
+  var lista = state.ordini.filter(function(o){
+    return filtroOrdini === 'tutti' || o.stato === filtroOrdini;
+  });
+
+  var canali = { shop:'🛍️ Shop', torta:'🎂 Torta', manuale:'✍️ Manuale' };
+  var colStato = { 'nuovo':'err', 'confermato':'warn', 'in preparazione':'warn', 'pronto':'ok', 'ritirato':'grigio' };
+
+  var html = lista.length
+    ? lista.map(function(o){
+        var tot = totOrdine(o) || o.totale || 0;
+        var ultimo = o.stato === STATI_ORDINE[STATI_ORDINE.length-1];
+        var wa = o.tel
+          ? '<button class="btn mini verde" onclick="waOrdine(\'' + o.id + '\')">💬 WhatsApp</button>'
+          : '';
+        return '<div class="item">' +
+          '<div class="top"><div>' +
+            (o.numero ? '<span class="badge grigio">' + esc(o.numero) + '</span> ' : '') +
+            '<span class="badge oro">' + (canali[o.canale]||o.canale) + '</span> ' +
+            '<button class="badge ' + (colStato[o.stato]||'') + '" style="border:none;cursor:pointer" ' +
+              'onclick="avanzaOrdine(\'' + o.id + '\')" title="Tocca per avanzare">' + esc(o.stato) + (ultimo ? '' : ' →') + '</button>' +
+            '<div class="nome" style="margin-top:6px">' + esc(o.cliente || 'Cliente') + '</div>' +
+            '<div class="dett">' + esc(descRighe(o)) + '</div>' +
+            (o.ritiro ? '<div class="dett">Ritiro: ' + dLocDaKey(o.ritiro) + (o.ora ? ' · ore ' + esc(o.ora) : '') + '</div>' : '') +
+            (o.note ? '<div class="dett">Note: ' + esc(o.note) + '</div>' : '') +
+            (tot ? '<div class="dett">Totale: ' + euro(tot) + '</div>' : '') +
+          '</div></div>' +
+          '<div class="azioni">' +
+            wa +
+            '<button class="btn mini rosso" onclick="eliminaOrdine(\'' + o.id + '\')">Elimina</button>' +
+          '</div></div>';
+      }).join('')
+    : '<p class="muted">Nessun ordine' + (filtroOrdini !== 'tutti' ? ' con stato "' + filtroOrdini + '"' : '') + '.</p>';
+
+  document.getElementById('v-ordini').innerHTML =
+    '<div class="card"><h3>↗ Ordini completo (Hub Fagotti)</h3>' +
+      '<p class="muted">La gestione ordini avanzata del hub — clienti, incassi, notifiche. Si apre già loggata. Qui sotto resta l\'agenda rapida.</p>' +
+      '<button class="btn oro blocco" onclick="apriApp(state.settings.urlOrdini, true)">↗ Apri Ordini Fagotti completa</button>' +
+    '</div>' +
+    '<div class="subtabs">' + filtri + '</div>' +
+    '<div class="card"><h3>🧾 Ordini</h3><p class="muted" style="margin-bottom:8px">Tocca lo stato per avanzare: nuovo → confermato → in preparazione → pronto → ritirato</p>' + html + '</div>' +
+    '<div class="card"><h3>✍️ Nuovo ordine manuale</h3>' +
+      '<label class="lbl">Cliente</label><input type="text" id="omCliente" placeholder="Nome cliente">' +
+      '<label class="lbl">Telefono (per WhatsApp)</label><input type="tel" id="omTel" placeholder="3XX XXXXXXX">' +
+      '<label class="lbl">Descrizione</label><textarea id="omDesc" placeholder="Es. Torta Sacher 1kg, scritta Auguri Marco"></textarea>' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Data ritiro</label><input type="date" id="omRitiro"></div>' +
+        '<div><label class="lbl">Ora</label><input type="time" id="omOra" value="17:00"></div>' +
+      '</div>' +
+      '<label class="lbl">Totale € (opzionale)</label><input type="number" id="omTot" step="0.5" min="0" placeholder="0.00">' +
+      '<button class="btn blocco" onclick="nuovoOrdineManuale()">Salva ordine</button>' +
+    '</div>';
+}
+
+function nuovoOrdineManuale(){
+  var cliente = document.getElementById('omCliente').value.trim();
+  var desc = document.getElementById('omDesc').value.trim();
+  if(!cliente || !desc){ toast('Cliente e descrizione obbligatori'); return; }
+  var o = {
+    id:uid(), numero:numeroOrdine(), canale:'manuale', cliente:cliente,
+    tel:document.getElementById('omTel').value.trim(),
+    descrizione:desc, righe:null,
+    ritiro:document.getElementById('omRitiro').value || '',
+    ora:document.getElementById('omOra').value || '',
+    totale:parseFloat(document.getElementById('omTot').value) || 0,
+    note:'', stato:'nuovo', creato:Date.now()
+  };
+  state.ordini.unshift(o);
+  salva();
+  evento('ordine', 'Nuovo ordine ' + o.numero + ' (manuale): ' + cliente + ' — ' + desc.slice(0,60));
+  render(); toast('Ordine salvato');
+}
+
+function avanzaOrdine(id){
+  var o = state.ordini.find(function(x){ return x.id === id; });
+  if(!o) return;
+  var i = STATI_ORDINE.indexOf(o.stato);
+  if(i < 0 || i >= STATI_ORDINE.length - 1) return;
+  o.stato = STATI_ORDINE[i + 1];
+  salva();
+  evento('ordine', 'Ordine ' + (o.numero || 'di ' + (o.cliente||'cliente')) + ' → ' + o.stato);
+  render();
+}
+
+function eliminaOrdine(id){
+  if(!confirm('Eliminare questo ordine?')) return;
+  state.ordini = state.ordini.filter(function(o){ return o.id !== id; });
+  salva(); render();
+}
+
+function waOrdine(id){
+  var o = state.ordini.find(function(x){ return x.id === id; });
+  if(!o || !o.tel){ toast('Numero mancante'); return; }
+  var tpl = o.stato === 'pronto' ? state.bot.templates[1] : state.bot.templates[0];
+  var testo = compilaTemplate(tpl ? tpl.testo : 'Ciao {cliente}!', o);
+  window.open('https://wa.me/' + telWa(o.tel) + '?text=' + encodeURIComponent(testo), '_blank');
+}
+</script>
+<script>
+/* ============================================================
+   SHOP (prodotti con varianti/gusti)
+   ============================================================ */
+function renderShop(){
+  var lista = state.prodotti.length
+    ? state.prodotti.map(function(p){
+        var gusti = (p.varianti||[]).map(function(v,i){
+          return '<span class="chip' + (v.disp ? '' : ' off') + '">' + esc(v.nome) +
+            '<button title="attiva/disattiva" onclick="toggleVariante(\'' + p.id + '\',' + i + ')">' + (v.disp?'●':'○') + '</button>' +
+            '<button title="elimina" onclick="rimuoviVariante(\'' + p.id + '\',' + i + ')">✕</button></span>';
+        }).join('');
+        return '<div class="item">' +
+          '<div class="top"><div>' +
+            '<div class="nome">' + esc(p.nome) + ' ' +
+              '<span class="badge ' + (p.attivo?'ok':'grigio') + '">' + (p.attivo?'attivo':'nascosto') + '</span> ' +
+              '<span class="badge oro">' + ({negozio:'🛍️ Negozio',torta:'🎂 Torte su ordinazione',laboratorio:'🧪 Laboratorio (solo etichette)'}[p.cat]||p.cat) + '</span></div>' +
+            '<div class="dett">' + euro(p.prezzo) + ' / ' + esc(p.um) + '</div>' +
+          '</div></div>' +
+          '<div style="margin-top:8px">' + (gusti || '<span class="muted">Nessuna variante</span>') + '</div>' +
+          '<div class="riga" style="margin-top:8px">' +
+            '<input type="text" id="var-' + p.id + '" placeholder="Nuovo gusto/variante (es. Caramello salato)">' +
+            '<button class="btn mini fisso" onclick="aggiungiVariante(\'' + p.id + '\')">+ Gusto</button>' +
+          '</div>' +
+          '<div class="azioni">' +
+            '<select style="flex:1;min-width:150px" onchange="setCatProdotto(\'' + p.id + '\', this.value)" data-cat="' + p.cat + '">' +
+              '<option value="negozio">🛍️ Negozio</option><option value="torta">🎂 Torte su ordinazione</option><option value="laboratorio">🧪 Laboratorio</option>' +
+            '</select>' +
+            '<button class="btn mini sec" onclick="toggleProdotto(\'' + p.id + '\')">' + (p.attivo?'Nascondi':'Mostra') + '</button>' +
+            '<button class="btn mini rosso" onclick="eliminaProdotto(\'' + p.id + '\')">Elimina</button>' +
+          '</div></div>';
+      }).join('')
+    : '<p class="muted">Nessun prodotto. Creane uno qui sotto — un solo articolo può avere più gusti (es. Panettone 500g → cioccolato, vaniglia, caramello salato).</p>';
+
+  document.getElementById('v-shop').innerHTML =
+    '<div class="card"><h3>🛍️ Prodotti</h3>' + lista + '</div>' +
+    '<div class="card"><h3>➕ Nuovo prodotto</h3>' +
+      '<label class="lbl">Nome</label><input type="text" id="npNome" placeholder="Es. Panettone artigianale 500g">' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Prezzo €</label><input type="number" id="npPrezzo" step="0.10" min="0" placeholder="18.00"></div>' +
+        '<div><label class="lbl">Unità</label><select id="npUm"><option value="pz">al pezzo</option><option value="kg">al kg</option></select></div>' +
+      '</div>' +
+      '<label class="lbl">Dove appare</label>' +
+      '<select id="npCat"><option value="negozio">🛍️ Shop online (link cliente)</option><option value="torta">🎂 Torte su ordinazione (link cliente)</option><option value="laboratorio">🧪 Laboratorio (solo etichette/allergeni)</option></select>' +
+      '<label class="lbl">Gusti / varianti (separati da virgola — opzionale)</label>' +
+      '<input type="text" id="npVar" placeholder="Cioccolato, Vaniglia, Caramello salato">' +
+      '<button class="btn blocco" onclick="nuovoProdotto()">Crea prodotto</button>' +
+    '</div>';
+
+  document.querySelectorAll('#v-shop .azioni select[data-cat]').forEach(function(s){
+    s.value = s.dataset.cat;
+  });
+}
+
+function nuovoProdotto(){
+  var nome = document.getElementById('npNome').value.trim();
+  var prezzo = parseFloat(document.getElementById('npPrezzo').value);
+  if(!nome || isNaN(prezzo)){ toast('Nome e prezzo obbligatori'); return; }
+  var varianti = document.getElementById('npVar').value.split(',')
+    .map(function(v){ return v.trim(); })
+    .filter(function(v){ return v; })
+    .map(function(v){ return { nome:v, disp:true }; });
+  state.prodotti.push({
+    id:uid(), nome:nome, prezzo:prezzo,
+    um:document.getElementById('npUm').value,
+    cat:document.getElementById('npCat').value,
+    varianti:varianti, allergeni:[], ingredienti:'', attivo:true
+  });
+  salva();
+  evento('shop', 'Nuovo prodotto: ' + nome + (varianti.length ? ' (' + varianti.length + ' gusti)' : ''));
+  render(); toast('Prodotto creato');
+}
+
+function aggiungiVariante(pid){
+  var inp = document.getElementById('var-' + pid);
+  var nome = inp.value.trim();
+  if(!nome){ toast('Scrivi il nome del gusto'); return; }
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.varianti = p.varianti || [];
+  p.varianti.push({ nome:nome, disp:true });
+  salva(); render(); toast('Gusto aggiunto');
+}
+
+function rimuoviVariante(pid, i){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.varianti.splice(i,1);
+  salva(); render();
+}
+
+function toggleVariante(pid, i){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.varianti[i].disp = !p.varianti[i].disp;
+  salva(); render();
+}
+
+function setCatProdotto(pid, cat){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.cat = cat;
+  salva(); render(); toast('Categoria aggiornata');
+}
+
+function toggleProdotto(pid){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.attivo = !p.attivo;
+  salva(); render();
+}
+
+function eliminaProdotto(pid){
+  if(!confirm('Eliminare il prodotto?')) return;
+  state.prodotti = state.prodotti.filter(function(p){ return p.id !== pid; });
+  salva(); render();
+}
+
+/* ============================================================
+   ALLERGENI + HACCP
+   ============================================================ */
+function renderAllergeni(){
+  var tabs = [
+    ['allergeni','⚠️ Allergeni'],
+    ['temp','🌡️ Temperature'],
+    ['sanif','🧽 Sanificazione'],
+    ['scad','⏳ Scadenze']
+  ].map(function(t){
+    return '<button class="subtab' + (subHaccp === t[0] ? ' active' : '') + '" onclick="subHaccp=\'' + t[0] + '\';render()">' + t[1] + '</button>';
+  }).join('');
+
+  var corpo = '';
+  if(subHaccp === 'allergeni') corpo = corpoAllergeni();
+  else if(subHaccp === 'temp') corpo = corpoTemp();
+  else if(subHaccp === 'sanif') corpo = corpoSanif();
+  else corpo = corpoScad();
+
+  document.getElementById('v-allergeni').innerHTML = '<div class="subtabs">' + tabs + '</div>' + corpo;
+}
+
+function corpoAllergeni(){
+  var launcher = '<div class="card"><h3>↗ Etichette Allergeni Fagotti</h3>' +
+    '<p class="muted">L\'app dedicata con ricerca veloce e stampa etichette a norma UE 1169/2011 — nessun login richiesto.</p>' +
+    '<button class="btn oro blocco" onclick="apriApp(state.settings.urlAllergeni, false)">↗ Apri Allergeni & Etichette</button>' +
+    '</div>';
+  if(!state.prodotti.length){
+    return launcher + '<div class="card"><p class="muted">Crea prima i prodotti nella sezione Shop: qui assegni gli allergeni e stampi le etichette.</p></div>';
+  }
+  return launcher + state.prodotti.map(function(p){
+    var checks = ALLERGENI.map(function(a,i){
+      var on = (p.allergeni||[]).indexOf(i) >= 0;
+      return '<label class="all-check' + (on?' on':'') + '">' +
+        '<input type="checkbox"' + (on?' checked':'') + ' onchange="toggleAllergene(\'' + p.id + '\',' + i + ')">' +
+        esc(a) + '</label>';
+    }).join('');
+    return '<div class="card"><h3>' + esc(p.nome) + '</h3>' +
+      '<label class="lbl">Ingredienti (per etichetta)</label>' +
+      '<textarea onchange="setIngredienti(\'' + p.id + '\', this.value)" placeholder="Farina di grano tenero, burro, uova, zucchero...">' + esc(p.ingredienti||'') + '</textarea>' +
+      '<div class="all-grid">' + checks + '</div>' +
+      '<button class="btn oro blocco" onclick="stampaEtichetta(\'' + p.id + '\')">🖨️ Stampa etichetta</button>' +
+      '</div>';
+  }).join('');
+}
+
+function toggleAllergene(pid, i){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.allergeni = p.allergeni || [];
+  var pos = p.allergeni.indexOf(i);
+  if(pos >= 0) p.allergeni.splice(pos,1); else p.allergeni.push(i);
+  salva(); render();
+}
+
+function setIngredienti(pid, val){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  p.ingredienti = val.trim();
+  salva();
+  toast('Ingredienti salvati');
+}
+
+function stampaEtichetta(pid){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  var nomiAll = (p.allergeni||[]).sort(function(a,b){return a-b;})
+    .map(function(i){ return ALLERGENI[i]; }).join(', ');
+  document.getElementById('printArea').innerHTML =
+    '<div class="etichetta">' +
+      '<h2>' + esc(p.nome) + '</h2>' +
+      (p.ingredienti ? '<div class="ingr"><b>Ingredienti:</b> ' + esc(p.ingredienti) + '</div>' : '') +
+      '<div class="allg">Allergeni: ' + (nomiAll ? esc(nomiAll) : 'nessuno dichiarato') + '</div>' +
+      '<div class="ditta">' + esc(state.settings.nome) + (state.settings.tel ? ' · ' + esc(state.settings.tel) : '') +
+        ' · Etichetta del ' + dLocDaKey(oggiKey()) + '</div>' +
+    '</div>';
+  window.print();
+}
+
+/* ---------- HACCP: Temperature ---------- */
+function fuoriRange(punto, gradi){
+  var g = Number(gradi);
+  if(punto.indexOf('Frigo') === 0 || punto.indexOf('Vetrina') === 0) return g < 0 || g > 4;
+  if(punto === 'Congelatore') return g > -18;
+  if(punto === 'Laboratorio') return g > 26;
+  return false; /* abbattitore: nessun controllo automatico */
+}
+
+function corpoTemp(){
+  var puntiOpts = PUNTI_TEMP.map(function(p){ return '<option>' + p + '</option>'; }).join('');
+  var righe = state.haccp.temp.slice(0,40).map(function(r){
+    var fr = fuoriRange(r.punto, r.gradi);
+    return '<div class="item"><div class="top"><div>' +
+      '<div class="nome">' + esc(r.punto) + ' · ' + esc(r.gradi) + '°C ' +
+        (fr ? '<span class="badge err">fuori range</span>' : '<span class="badge ok">conforme</span>') + '</div>' +
+      '<div class="dett">' + oraLoc(r.ts) + (r.operatore ? ' · ' + esc(r.operatore) : '') + '</div>' +
+      '</div></div></div>';
+  }).join('') || '<p class="muted">Nessuna rilevazione registrata.</p>';
+
+  return '<div class="card"><h3>🌡️ Nuova rilevazione</h3>' +
+    '<div class="riga">' +
+      '<div><label class="lbl">Punto di controllo</label><select id="tPunto">' + puntiOpts + '</select></div>' +
+      '<div><label class="lbl">Temperatura °C</label><input type="number" id="tGradi" step="0.1" placeholder="3.5"></div>' +
+    '</div>' +
+    '<label class="lbl">Operatore</label><input type="text" id="tOp" placeholder="Nome operatore">' +
+    '<button class="btn blocco" onclick="registraTemp()">Registra</button>' +
+    '<p class="muted" style="margin-top:8px">Range: frigo e vetrina 0–4°C · congelatore ≤ −18°C · laboratorio ≤ 26°C. Le rilevazioni fuori range compaiono in Dashboard.</p>' +
+    '</div>' +
+    '<div class="card"><h3>📋 Registro temperature</h3>' + righe + '</div>';
+}
+
+function registraTemp(){
+  var punto = document.getElementById('tPunto').value;
+  var gradi = document.getElementById('tGradi').value;
+  if(gradi === ''){ toast('Inserisci la temperatura'); return; }
+  var op = document.getElementById('tOp').value.trim();
+  state.haccp.temp.unshift({ id:uid(), ts:Date.now(), punto:punto, gradi:Number(gradi), operatore:op });
+  salva();
+  if(fuoriRange(punto, gradi)){
+    evento('haccp', '⚠️ HACCP: ' + punto + ' fuori range (' + gradi + '°C)');
+  }
+  render(); toast('Rilevazione registrata');
+}
+
+/* ---------- HACCP: Sanificazione ---------- */
+function corpoSanif(){
+  var voci = VOCI_SANIF.map(function(v,i){
+    return '<label class="all-check"><input type="checkbox" class="sanifV" data-i="' + i + '"> ' + esc(v) + '</label>';
+  }).join('');
+  var righe = state.haccp.sanif.slice(0,30).map(function(r){
+    return '<div class="item"><div class="top"><div>' +
+      '<div class="nome">' + dLocDaKey(r.data) + ' <span class="badge ok">' + r.voci.length + '/' + VOCI_SANIF.length + ' voci</span></div>' +
+      '<div class="dett">' + esc(r.voci.join(', ')) + (r.operatore ? ' · ' + esc(r.operatore) : '') + '</div>' +
+      '</div></div></div>';
+  }).join('') || '<p class="muted">Nessuna sanificazione registrata.</p>';
+
+  return '<div class="card"><h3>🧽 Sanificazione giornaliera</h3>' +
+    '<div class="all-grid">' + voci + '</div>' +
+    '<label class="lbl">Operatore</label><input type="text" id="sOp" placeholder="Nome operatore">' +
+    '<button class="btn blocco" onclick="registraSanif()">Registra giornata</button></div>' +
+    '<div class="card"><h3>📋 Registro sanificazioni</h3>' + righe + '</div>';
+}
+
+function registraSanif(){
+  var voci = [];
+  document.querySelectorAll('.sanifV').forEach(function(c){
+    if(c.checked) voci.push(VOCI_SANIF[Number(c.dataset.i)]);
+  });
+  if(!voci.length){ toast('Spunta almeno una voce'); return; }
+  state.haccp.sanif.unshift({
+    id:uid(), data:oggiKey(), voci:voci,
+    operatore:document.getElementById('sOp').value.trim()
+  });
+  salva(); render(); toast('Sanificazione registrata');
+}
+
+/* ---------- HACCP: Scadenze ---------- */
+function corpoScad(){
+  var ordinate = state.haccp.scad.slice().sort(function(a,b){
+    return a.scadenza < b.scadenza ? -1 : 1;
+  });
+  var ok = oggiKey();
+  var limite = new Date(); limite.setDate(limite.getDate() + 3);
+  var lk = dKey(limite);
+
+  var righe = ordinate.map(function(r){
+    var badge = r.scadenza < ok ? '<span class="badge err">SCADUTO</span>'
+      : (r.scadenza <= lk ? '<span class="badge warn">in scadenza</span>' : '<span class="badge ok">ok</span>');
+    return '<div class="item"><div class="top"><div>' +
+      '<div class="nome">' + esc(r.prodotto) + ' ' + badge + '</div>' +
+      '<div class="dett">Lotto: ' + esc(r.lotto || '—') + ' · Scade: ' + dLocDaKey(r.scadenza) + '</div>' +
+      '</div><button class="btn mini rosso fisso" onclick="eliminaScad(\'' + r.id + '\')">✕</button></div></div>';
+  }).join('') || '<p class="muted">Nessun lotto registrato.</p>';
+
+  return '<div class="card"><h3>⏳ Nuovo lotto</h3>' +
+    '<label class="lbl">Prodotto / preparazione</label><input type="text" id="scProd" placeholder="Es. Crema pasticcera">' +
+    '<div class="riga">' +
+      '<div><label class="lbl">Lotto</label><input type="text" id="scLotto" placeholder="L-140726"></div>' +
+      '<div><label class="lbl">Scadenza</label><input type="date" id="scData"></div>' +
+    '</div>' +
+    '<button class="btn blocco" onclick="registraScad()">Registra lotto</button></div>' +
+    '<div class="card"><h3>📋 Lotti e scadenze</h3>' + righe + '</div>';
+}
+
+function registraScad(){
+  var prod = document.getElementById('scProd').value.trim();
+  var data = document.getElementById('scData').value;
+  if(!prod || !data){ toast('Prodotto e scadenza obbligatori'); return; }
+  state.haccp.scad.push({
+    id:uid(), prodotto:prod,
+    lotto:document.getElementById('scLotto').value.trim(),
+    scadenza:data
+  });
+  salva(); render(); toast('Lotto registrato');
+}
+
+function eliminaScad(id){
+  state.haccp.scad = state.haccp.scad.filter(function(r){ return r.id !== id; });
+  salva(); render();
+}
+</script>
+<script>
+/* ============================================================
+   BOT (template WhatsApp)
+   ============================================================ */
+function compilaTemplate(testo, ordine){
+  return String(testo)
+    .replace(/\{cliente\}/g, ordine && ordine.cliente ? ordine.cliente : '')
+    .replace(/\{data\}/g, ordine && ordine.ritiro ? dLocDaKey(ordine.ritiro) : dLocDaKey(oggiKey()))
+    .replace(/\{attivita\}/g, state.settings.nome || '');
+}
+
+function renderBot(){
+  var tpl = state.bot.templates.map(function(t){
+    return '<div class="item">' +
+      '<div class="nome">' + esc(t.nome) + '</div>' +
+      '<textarea onchange="salvaTemplate(\'' + t.id + '\', this.value)">' + esc(t.testo) + '</textarea>' +
+      '</div>';
+  }).join('');
+
+  var ordiniAperti = state.ordini.filter(function(o){ return o.stato !== 'ritirato' && o.tel; });
+  var ordOpts = ordiniAperti.map(function(o){
+    return '<option value="' + o.id + '">' + esc(o.cliente) + ' — ' + esc(descRighe(o)).slice(0,40) + '</option>';
+  }).join('');
+  var tplOpts = state.bot.templates.map(function(t){
+    return '<option value="' + t.id + '">' + esc(t.nome) + '</option>';
+  }).join('');
+
+  var invio = ordiniAperti.length
+    ? '<label class="lbl">Ordine</label><select id="botOrdine">' + ordOpts + '</select>' +
+      '<label class="lbl">Template</label><select id="botTpl">' + tplOpts + '</select>' +
+      '<button class="btn verde blocco" onclick="botInvia()">💬 Apri WhatsApp</button>'
+    : '<p class="muted">Nessun ordine aperto con numero di telefono. I placeholder disponibili sono {cliente}, {data}, {attivita}.</p>';
+
+  document.getElementById('v-bot').innerHTML =
+    '<div class="card"><h3>🤖 Invio rapido</h3>' + invio + '</div>' +
+    '<div class="card"><h3>📝 Template messaggi</h3>' +
+      '<p class="muted" style="margin-bottom:8px">Placeholder: {cliente} · {data} · {attivita}</p>' + tpl +
+    '</div>';
+}
+
+function salvaTemplate(id, testo){
+  var t = state.bot.templates.find(function(x){ return x.id === id; });
+  if(!t) return;
+  t.testo = testo;
+  salva(); toast('Template salvato');
+}
+
+function botInvia(){
+  var oid = document.getElementById('botOrdine').value;
+  var tid = document.getElementById('botTpl').value;
+  var o = state.ordini.find(function(x){ return x.id === oid; });
+  var t = state.bot.templates.find(function(x){ return x.id === tid; });
+  if(!o || !t) return;
+  var testo = compilaTemplate(t.testo, o);
+  window.open('https://wa.me/' + telWa(o.tel) + '?text=' + encodeURIComponent(testo), '_blank');
+}
+
+/* ============================================================
+   FORNITORI
+   ============================================================ */
+function renderFornitori(){
+  var lista = state.fornitori.length
+    ? state.fornitori.map(function(f){
+        var righeLista = (f.lista||[]).map(function(r,i){
+          return '<div class="turno-riga"><div class="dip">' + esc(r.nome) + '</div>' +
+            '<span class="badge grigio fisso">' + esc(r.qta) + '</span>' +
+            '<button class="btn mini rosso fisso" onclick="rimuoviVoceLista(\'' + f.id + '\',' + i + ')">✕</button></div>';
+        }).join('') || '<p class="muted">Lista vuota — aggiungi i prodotti da ordinare.</p>';
+
+        var catalogo = (f.catalogo||[]).map(function(c,i){
+          return '<span class="chip" style="cursor:pointer" onclick="aggiungiDaCatalogo(\'' + f.id + '\',' + i + ')">+ ' + esc(c) + '</span>';
+        }).join('');
+
+        var storico = (f.storico||[]).slice(0,3).map(function(s){
+          return '<div class="dett">📤 ' + oraLoc(s.ts) + ' · ' + s.n + ' articoli</div>';
+        }).join('');
+
+        return '<div class="card"><h3>🚚 ' + esc(f.nome) +
+          (f.tel ? ' <span class="badge grigio">' + esc(f.tel) + '</span>' : '') + '</h3>' +
+          righeLista +
+          (catalogo ? '<div style="margin-top:8px"><span class="muted">Dispensa rapida:</span><br>' + catalogo + '</div>' : '') +
+          '<div class="riga" style="margin-top:10px">' +
+            '<input type="text" id="fp-' + f.id + '" placeholder="Prodotto (es. Farina 00)" style="flex:2">' +
+            '<input type="text" id="fq-' + f.id + '" placeholder="Q.tà (es. 25 kg)">' +
+            '<button class="btn mini fisso" onclick="aggiungiVoceLista(\'' + f.id + '\')">+ Aggiungi</button>' +
+          '</div>' +
+          '<div class="azioni">' +
+            ((f.lista||[]).length ? '<button class="btn verde" style="flex:1" onclick="inviaListaWa(\'' + f.id + '\')">💬 Invia lista su WhatsApp</button>' : '') +
+            '<button class="btn mini rosso" onclick="eliminaFornitore(\'' + f.id + '\')">Elimina fornitore</button>' +
+          '</div>' +
+          (storico ? '<div style="margin-top:8px">' + storico + '</div>' : '') +
+          '</div>';
+      }).join('')
+    : '<div class="card"><p class="muted">Nessun fornitore. Aggiungi nome e numero WhatsApp, poi componi la lista prodotti e inviala con un tap.</p></div>';
+
+  document.getElementById('v-fornitori').innerHTML =
+    lista +
+    '<div class="card"><h3>➕ Nuovo fornitore</h3>' +
+      '<div class="riga">' +
+        '<input type="text" id="nfNome" placeholder="Nome fornitore" style="flex:2">' +
+        '<input type="tel" id="nfTel" placeholder="3XX XXXXXXX">' +
+      '</div>' +
+      '<button class="btn blocco" onclick="nuovoFornitore()">Aggiungi fornitore</button>' +
+    '</div>';
+}
+
+function nuovoFornitore(){
+  var nome = document.getElementById('nfNome').value.trim();
+  var tel = document.getElementById('nfTel').value.trim();
+  if(!nome || !tel){ toast('Nome e numero obbligatori'); return; }
+  state.fornitori.push({ id:uid(), nome:nome, tel:tel, lista:[], storico:[], catalogo:[] });
+  salva(); render(); toast('Fornitore aggiunto');
+}
+
+function eliminaFornitore(id){
+  if(!confirm('Eliminare il fornitore e la sua lista?')) return;
+  state.fornitori = state.fornitori.filter(function(f){ return f.id !== id; });
+  salva(); render();
+}
+
+function aggiungiVoceLista(fid){
+  var f = state.fornitori.find(function(x){ return x.id === fid; });
+  if(!f) return;
+  var nome = document.getElementById('fp-' + fid).value.trim();
+  var qta = document.getElementById('fq-' + fid).value.trim() || '1';
+  if(!nome){ toast('Scrivi il prodotto'); return; }
+  f.lista.push({ nome:nome, qta:qta });
+  f.catalogo = f.catalogo || [];
+  if(f.catalogo.indexOf(nome) < 0) f.catalogo.push(nome);
+  salva(); render();
+}
+
+function aggiungiDaCatalogo(fid, i){
+  var f = state.fornitori.find(function(x){ return x.id === fid; });
+  if(!f || !f.catalogo || !f.catalogo[i]) return;
+  var qta = prompt('Quantità per: ' + f.catalogo[i], '1');
+  if(qta === null) return;
+  f.lista.push({ nome:f.catalogo[i], qta:(qta.trim() || '1') });
+  salva(); render();
+}
+
+function rimuoviVoceLista(fid, i){
+  var f = state.fornitori.find(function(x){ return x.id === fid; });
+  if(!f) return;
+  f.lista.splice(i,1);
+  salva(); render();
+}
+
+function inviaListaWa(fid){
+  var f = state.fornitori.find(function(x){ return x.id === fid; });
+  if(!f || !f.lista.length) return;
+  var testo = 'Ordine da ' + (state.settings.nome || 'pasticceria') + ' — ' + dLocDaKey(oggiKey()) + ':\n' +
+    f.lista.map(function(r){ return '• ' + r.nome + ' — ' + r.qta; }).join('\n') +
+    '\nGrazie!';
+  window.open('https://wa.me/' + telWa(f.tel) + '?text=' + encodeURIComponent(testo), '_blank');
+  if(confirm('Lista aperta su WhatsApp. Segnare come inviata e svuotare la lista?')){
+    f.storico = f.storico || [];
+    f.storico.unshift({ ts:Date.now(), n:f.lista.length });
+    evento('fornitore', 'Lista inviata a ' + f.nome + ' (' + f.lista.length + ' articoli)');
+    f.lista = [];
+    salva(); render();
+  }
+}
+
+/* ============================================================
+   IMPOSTAZIONI
+   ============================================================ */
+function linkCliente(){
+  return location.href.split('#')[0] + '#' + (state.settings.dest || 'negozio');
+}
+
+function renderImpostazioni(){
+  document.getElementById('v-impostazioni').innerHTML =
+    '<div class="card"><h3>🏪 Attività</h3>' +
+      '<label class="lbl">Nome attività</label>' +
+      '<input type="text" id="setNome" value="' + esc(state.settings.nome) + '">' +
+      '<label class="lbl">Telefono attività</label>' +
+      '<input type="tel" id="setTel" value="' + esc(state.settings.tel) + '">' +
+      '<button class="btn blocco" onclick="salvaImpostazioni()">Salva</button>' +
+    '</div>' +
+    '<div class="card"><h3>🔗 Link unico per i clienti</h3>' +
+      '<p class="muted">Condividi questo link (Instagram, WhatsApp, Google): il cliente vede solo la pagina scelta, senza il gestionale.</p>' +
+      '<label class="lbl">Il link porta a</label>' +
+      '<select id="setDest" onchange="state.settings.dest=this.value;salva();render()">' +
+        '<option value="negozio"' + (state.settings.dest === 'negozio' ? ' selected' : '') + '>🛍️ Pagina Shop</option>' +
+        '<option value="ordina"' + (state.settings.dest === 'ordina' ? ' selected' : '') + '>🎂 Pagina Ordina Torta</option>' +
+      '</select>' +
+      '<label class="lbl">Link</label>' +
+      '<input type="text" id="setLink" readonly value="' + esc(linkCliente()) + '">' +
+      '<div class="azioni">' +
+        '<button class="btn oro" style="flex:1" onclick="copiaLink()">📋 Copia link</button>' +
+        '<button class="btn sec" style="flex:1" onclick="window.open(linkCliente(),\'_blank\')">👁️ Anteprima</button>' +
+      '</div>' +
+      '<p class="muted" style="margin-top:8px">Nota versione free: i dati vivono nel browser (localStorage). Gli ordini dal link arrivano in Dashboard se aperto su questo stesso dispositivo/browser; per ricevere ordini da qualsiasi telefono servirà la versione con backend (Supabase).</p>' +
+    '</div>' +
+    '<div class="card"><h3>🔗 App Fagotti collegate</h3>' +
+      '<p class="muted">La password condivisa genera i link con auto-login (?k=): entri nella Suite una volta sola.</p>' +
+      '<label class="lbl">Password condivisa app</label>' +
+      '<input type="text" id="setPwdApp" value="' + esc(state.settings.pwdApp||'') + '">' +
+      '<label class="lbl">URL Turni & Ferie</label>' +
+      '<input type="text" id="setUrlTurni" value="' + esc(state.settings.urlTurni||'') + '">' +
+      '<label class="lbl">URL Allergeni & Etichette</label>' +
+      '<input type="text" id="setUrlAllergeni" value="' + esc(state.settings.urlAllergeni||'') + '">' +
+      '<label class="lbl">URL Ordini</label>' +
+      '<input type="text" id="setUrlOrdini" value="' + esc(state.settings.urlOrdini||'') + '">' +
+      '<button class="btn blocco" onclick="salvaApp()">Salva collegamenti</button>' +
+    '</div>' +
+    '<div class="card"><h3>💾 Backup</h3>' +
+      '<div class="azioni">' +
+        '<button class="btn sec" style="flex:1" onclick="esportaJson()">⬇️ Esporta dati</button>' +
+        '<button class="btn sec" style="flex:1" onclick="document.getElementById(\'impFile\').click()">⬆️ Importa dati</button>' +
+      '</div>' +
+      '<input type="file" id="impFile" accept=".json" style="display:none" onchange="importaJson(this)">' +
+      '<button class="btn rosso blocco" onclick="azzeraTutto()">🗑️ Azzera tutti i dati</button>' +
+    '</div>';
+}
+
+function salvaApp(){
+  state.settings.pwdApp = document.getElementById('setPwdApp').value.trim();
+  state.settings.urlTurni = document.getElementById('setUrlTurni').value.trim();
+  state.settings.urlAllergeni = document.getElementById('setUrlAllergeni').value.trim();
+  state.settings.urlOrdini = document.getElementById('setUrlOrdini').value.trim();
+  salva(); render(); toast('Collegamenti salvati');
+}
+
+function salvaImpostazioni(){
+  state.settings.nome = document.getElementById('setNome').value.trim() || 'Pasticceria Fagotti';
+  state.settings.tel = document.getElementById('setTel').value.trim();
+  salva(); render(); toast('Impostazioni salvate');
+}
+
+function copiaLink(){
+  var inp = document.getElementById('setLink');
+  inp.select();
+  inp.setSelectionRange(0, 9999);
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(inp.value);
+    }else{
+      document.execCommand('copy');
+    }
+    toast('Link copiato');
+  }catch(e){ toast('Copia manualmente il link'); }
+}
+
+function esportaJson(){
+  var blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'workmor-suite-backup-' + oggiKey() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importaJson(inp){
+  var file = inp.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var dati = JSON.parse(reader.result);
+      if(!dati.settings){ toast('File non valido'); return; }
+      state = dati;
+      salva(); render(); toast('Dati importati');
+    }catch(e){ toast('File non valido'); }
+  };
+  reader.readAsText(file);
+  inp.value = '';
+}
+
+function azzeraTutto(){
+  if(!confirm('Azzerare TUTTI i dati della suite? Operazione irreversibile.')) return;
+  if(!confirm('Confermi davvero? Verranno persi turni, ordini, prodotti, fornitori e registri HACCP.')) return;
+  state = statoDefault();
+  salva(); render(); toast('Dati azzerati');
+}
+</script>
+<script>
+/* ============================================================
+   VISTA CLIENTE (#negozio / #ordina)
+   ============================================================ */
+function renderCliente(){
+  document.getElementById('hdr').style.display = 'none';
+  document.body.classList.add('cliente');
+  document.querySelectorAll('.view').forEach(function(s){
+    s.classList.toggle('show', s.id === 'v-cliente');
+  });
+  if(modCliente === 'negozio') renderClienteShop();
+  else renderClienteTorta();
+}
+
+function heroCliente(sottotitolo){
+  return '<div class="cliente-hero" style="margin:-16px -16px 16px;border-radius:0 0 16px 16px">' +
+    '<h1>' + esc(state.settings.nome) + ' <span>·</span></h1>' +
+    '<p>' + sottotitolo + '</p></div>';
+}
+
+/* ---------- Shop cliente ---------- */
+function renderClienteShop(){
+  var prodotti = state.prodotti.filter(function(p){ return p.attivo && p.cat === 'negozio'; });
+
+  var cards = prodotti.length
+    ? prodotti.map(function(p){
+        var gustiDisp = (p.varianti||[]).filter(function(v){ return v.disp; });
+        var selInCarrello = carrello.filter(function(c){ return c.pid === p.id; });
+        var gusti = gustiDisp.length
+          ? '<div class="gusti">' + gustiDisp.map(function(v){
+              var sel = selGusto[p.id] === v.nome ? ' sel' : '';
+              return '<button class="gusto' + sel + '" onclick="scegliGusto(\'' + p.id + '\',\'' + esc(v.nome).replace(/'/g,"\\'") + '\')">' + esc(v.nome) + '</button>';
+            }).join('') + '</div>'
+          : '';
+        var nelCarrello = selInCarrello.reduce(function(t,c){ return t + c.qta; }, 0);
+        return '<div class="prodotto-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">' +
+            '<div class="pnome">' + esc(p.nome) + '</div>' +
+            '<div class="pprezzo">' + euro(p.prezzo) + (p.um === 'kg' ? '/kg' : '') + '</div>' +
+          '</div>' +
+          gusti +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">' +
+            '<span class="muted">' + (nelCarrello ? nelCarrello + ' nel carrello' : '') + '</span>' +
+            '<button class="btn" onclick="aggiungiCarrello(\'' + p.id + '\')">Aggiungi 🛒</button>' +
+          '</div></div>';
+      }).join('')
+    : '<div class="card"><p class="muted">Il negozio online è momentaneamente vuoto. Torna presto!</p></div>';
+
+  var nTot = carrello.reduce(function(t,c){ return t + c.qta; }, 0);
+  var eTot = carrello.reduce(function(t,c){
+    var p = state.prodotti.find(function(x){ return x.id === c.pid; });
+    return t + (p ? p.prezzo * c.qta : 0);
+  }, 0);
+
+  var bar = nTot
+    ? '<div class="carrello-bar"><div class="tot">' + nTot + ' art. · ' + euro(eTot) + '</div>' +
+      '<button class="btn oro" onclick="mostraCheckout()">Concludi ordine →</button></div>'
+    : '';
+
+  document.getElementById('v-cliente').innerHTML =
+    heroCliente('Ordina online · ritiro in negozio') + cards +
+    '<div id="checkoutBox"></div>' + bar +
+    '<footer class="firma">powered by Fagotti Suite</footer>';
+}
+
+var selGusto = {};
+
+function scegliGusto(pid, nome){
+  selGusto[pid] = nome;
+  render();
+}
+
+function aggiungiCarrello(pid){
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  var gustiDisp = (p.varianti||[]).filter(function(v){ return v.disp; });
+  var gusto = selGusto[pid] || '';
+  if(gustiDisp.length && !gusto){ toast('Scegli prima il gusto'); return; }
+  var esist = carrello.find(function(c){ return c.pid === pid && c.variante === gusto; });
+  if(esist) esist.qta++;
+  else carrello.push({ pid:pid, variante:gusto, qta:1 });
+  render();
+  toast('Aggiunto: ' + p.nome + (gusto ? ' (' + gusto + ')' : ''));
+}
+
+function mostraCheckout(){
+  var righe = carrello.map(function(c,i){
+    var p = state.prodotti.find(function(x){ return x.id === c.pid; });
+    if(!p) return '';
+    return '<div class="turno-riga">' +
+      '<div class="dip">' + esc(p.nome) + (c.variante ? ' · ' + esc(c.variante) : '') + '</div>' +
+      '<div class="qta-box fisso">' +
+        '<button onclick="cambiaQta(' + i + ',-1)">−</button>' +
+        '<span class="q">' + c.qta + '</span>' +
+        '<button onclick="cambiaQta(' + i + ',1)">+</button>' +
+      '</div></div>';
+  }).join('');
+
+  var domani = new Date(); domani.setDate(domani.getDate() + 1);
+
+  document.getElementById('checkoutBox').innerHTML =
+    '<div class="card"><h3>🛒 Il tuo ordine</h3>' + righe +
+      '<label class="lbl">Il tuo nome</label><input type="text" id="ckNome" placeholder="Nome e cognome">' +
+      '<label class="lbl">Telefono</label><input type="tel" id="ckTel" placeholder="3XX XXXXXXX">' +
+      '<label class="lbl">Giorno di ritiro</label><input type="date" id="ckRitiro" min="' + oggiKey() + '" value="' + dKey(domani) + '">' +
+      '<label class="lbl">Note (opzionale)</label><textarea id="ckNote" placeholder="Es. passo verso le 18"></textarea>' +
+      '<button class="btn blocco" onclick="confermaOrdineShop()">✅ Invia ordine</button>' +
+    '</div>';
+  document.getElementById('checkoutBox').scrollIntoView({ behavior:'smooth' });
+}
+
+function cambiaQta(i, delta){
+  carrello[i].qta += delta;
+  if(carrello[i].qta <= 0) carrello.splice(i,1);
+  render();
+  if(carrello.length) mostraCheckout();
+}
+
+function confermaOrdineShop(){
+  var nome = document.getElementById('ckNome').value.trim();
+  var tel = document.getElementById('ckTel').value.trim();
+  if(!nome || !tel){ toast('Nome e telefono obbligatori'); return; }
+  if(!carrello.length){ toast('Carrello vuoto'); return; }
+  var righe = carrello.map(function(c){
+    var p = state.prodotti.find(function(x){ return x.id === c.pid; });
+    return { nome:(p ? p.nome : '?'), variante:c.variante, qta:c.qta, prezzo:(p ? p.prezzo : 0) };
+  });
+  var o = {
+    id:uid(), numero:numeroOrdine(), canale:'shop', cliente:nome, tel:tel, righe:righe, ora:'',
+    ritiro:document.getElementById('ckRitiro').value,
+    note:document.getElementById('ckNote').value.trim(),
+    stato:'nuovo', creato:Date.now()
+  };
+  state.ordini.unshift(o);
+  salva();
+  evento('ordine', 'Nuovo ordine ' + o.numero + ' dallo Shop: ' + nome + ' — ' + descRighe(o).slice(0,60));
+  carrello = [];
+  document.getElementById('v-cliente').innerHTML =
+    heroCliente('Ordine ricevuto!') +
+    '<div class="card" style="text-align:center;padding:30px 16px">' +
+      '<div style="font-size:44px">🎉</div>' +
+      '<h3 style="justify-content:center;margin-top:8px">Grazie ' + esc(nome) + '!</h3>' +
+      '<p class="muted">Il tuo ordine è stato registrato. Ti aspettiamo il ' + dLocDaKey(o.ritiro) + '.</p>' +
+    '</div>' +
+    '<footer class="firma">powered by Fagotti Suite</footer>';
+}
+
+/* ---------- Ordina torta cliente ---------- */
+function renderClienteTorta(){
+  var torte = state.prodotti.filter(function(p){ return p.attivo && p.cat === 'torta'; });
+  var torteOpts = torte.map(function(p){
+    return '<option value="' + p.id + '">' + esc(p.nome) + ' — ' + euro(p.prezzo) + (p.um === 'kg' ? '/kg' : '') + '</option>';
+  }).join('');
+
+  var selTorta = torte.length
+    ? '<label class="lbl">Scegli la torta</label><select id="ctTorta" onchange="renderGustiTorta()">' + torteOpts + '</select>' +
+      '<div id="ctGusti"></div>'
+    : '<label class="lbl">Descrivi la torta che desideri</label><textarea id="ctLibera" placeholder="Es. Sacher da 1kg con scritta Auguri"></textarea>';
+
+  var domani = new Date(); domani.setDate(domani.getDate() + 2);
+
+  document.getElementById('v-cliente').innerHTML =
+    heroCliente('Ordina la tua torta') +
+    '<div class="card"><h3>🎂 La tua torta</h3>' +
+      selTorta +
+      '<label class="lbl">Peso</label>' +
+      '<select id="ctPeso"><option>500 g</option><option selected>1 kg</option><option>1,5 kg</option><option>2 kg</option></select>' +
+      '<label class="lbl">Giorno di ritiro</label>' +
+      '<input type="date" id="ctRitiro" min="' + oggiKey() + '" value="' + dKey(domani) + '">' +
+      '<label class="lbl">Il tuo nome</label><input type="text" id="ctNome" placeholder="Nome e cognome">' +
+      '<label class="lbl">Telefono</label><input type="tel" id="ctTel" placeholder="3XX XXXXXXX">' +
+      '<label class="lbl">Note / scritta sulla torta (opzionale)</label>' +
+      '<textarea id="ctNote" placeholder="Es. scritta Auguri Marco, senza granella"></textarea>' +
+      '<button class="btn blocco" onclick="confermaOrdineTorta()">✅ Invia richiesta</button>' +
+    '</div>' +
+    '<footer class="firma">powered by Fagotti Suite</footer>';
+
+  renderGustiTorta();
+}
+
+function renderGustiTorta(){
+  var box = document.getElementById('ctGusti');
+  if(!box) return;
+  var sel = document.getElementById('ctTorta');
+  if(!sel){ box.innerHTML = ''; return; }
+  var p = state.prodotti.find(function(x){ return x.id === sel.value; });
+  var gusti = p ? (p.varianti||[]).filter(function(v){ return v.disp; }) : [];
+  box.innerHTML = gusti.length
+    ? '<label class="lbl">Gusto</label><select id="ctGusto">' +
+      gusti.map(function(v){ return '<option>' + esc(v.nome) + '</option>'; }).join('') + '</select>'
+    : '';
+}
+
+function confermaOrdineTorta(){
+  var nome = document.getElementById('ctNome').value.trim();
+  var tel = document.getElementById('ctTel').value.trim();
+  if(!nome || !tel){ toast('Nome e telefono obbligatori'); return; }
+
+  var descr, righe = null;
+  var selT = document.getElementById('ctTorta');
+  var peso = document.getElementById('ctPeso').value;
+  var gustoEl = document.getElementById('ctGusto');
+  var gusto = gustoEl ? gustoEl.value : '';
+
+  if(selT){
+    var p = state.prodotti.find(function(x){ return x.id === selT.value; });
+    descr = (p ? p.nome : 'Torta') + ' · ' + peso + (gusto ? ' · ' + gusto : '');
+    righe = [{ nome:(p ? p.nome : 'Torta') + ' ' + peso, variante:gusto, qta:1, prezzo:(p ? p.prezzo : 0) }];
+  }else{
+    var libera = document.getElementById('ctLibera').value.trim();
+    if(!libera){ toast('Descrivi la torta'); return; }
+    descr = libera + ' · ' + peso;
+  }
+
+  var o = {
+    id:uid(), numero:numeroOrdine(), canale:'torta', cliente:nome, tel:tel, ora:'',
+    righe:righe, descrizione:descr,
+    ritiro:document.getElementById('ctRitiro').value,
+    note:document.getElementById('ctNote').value.trim(),
+    stato:'nuovo', creato:Date.now()
+  };
+  state.ordini.unshift(o);
+  salva();
+  evento('ordine', 'Nuova richiesta torta ' + o.numero + ': ' + nome + ' — ' + descr.slice(0,60));
+
+  document.getElementById('v-cliente').innerHTML =
+    heroCliente('Richiesta inviata!') +
+    '<div class="card" style="text-align:center;padding:30px 16px">' +
+      '<div style="font-size:44px">🎂</div>' +
+      '<h3 style="justify-content:center;margin-top:8px">Grazie ' + esc(nome) + '!</h3>' +
+      '<p class="muted">La richiesta è stata registrata: ti contatteremo per la conferma. Ritiro previsto il ' + dLocDaKey(o.ritiro) + '.</p>' +
+    '</div>' +
+    '<footer class="firma">powered by Fagotti Suite</footer>';
+}
+
+/* ============================================================
+   AVVIO
+   ============================================================ */
+function avvia(){
+  var h = location.hash.replace('#','');
+  if(h === 'negozio' || h === 'ordina'){
+    modCliente = h;
+  }
+  if(!modCliente && !sessionStorage.getItem('fs_auth')){
+    document.getElementById('login').classList.remove('hidden');
+    var pi = document.getElementById('loginPwd');
+    pi.addEventListener('keydown', function(e){ if(e.key === 'Enter') doLoginSuite(); });
+    setTimeout(function(){ pi.focus(); }, 100);
+  }
+  var d = new Date();
+  document.getElementById('hdrData').textContent =
+    d.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' });
+  render();
+}
+
+window.addEventListener('hashchange', function(){
+  location.reload();
+});
+
+avvia();
+</script>
+</body>
+</html>
