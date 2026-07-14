@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --ink:#111827;
@@ -436,6 +438,69 @@ window.addEventListener('storage', function(e){
     render();
   }
 });
+
+/* ============================================================
+   FIRESTORE — sola lettura. La Suite NON scrive mai su Firestore:
+   legge ordini (collection 'ordini') e turni (turni_app/fagotti_pro)
+   dalle app Fagotti e aggiorna la dashboard in tempo reale.
+   ============================================================ */
+var LIVE = { ordini:[], turni:{}, prontoFB:false, errore:false };
+var db = null;
+
+(function initFirebase(){
+  try{
+    firebase.initializeApp({
+      apiKey:"AIzaSyDTZFJlCeH6pmwE3tp3qU5dGh7x6XrHe2Q",
+      authDomain:"ordini-fagotti-bd9d8.firebaseapp.com",
+      projectId:"ordini-fagotti-bd9d8",
+      storageBucket:"ordini-fagotti-bd9d8.firebasestorage.app",
+      messagingSenderId:"968063747672",
+      appId:"1:968063747672:web:6c2476600dfeea517cec2d"
+    });
+    db = firebase.firestore();
+  }catch(e){ db = null; }
+})();
+
+function ascoltaFirestore(){
+  if(!db) return;
+  // Ordini live dall'app Fagotti-ordini
+  db.collection("ordini").onSnapshot(function(snap){
+    LIVE.ordini = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    LIVE.prontoFB = true; LIVE.errore = false;
+    if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
+  }, function(){ LIVE.errore = true; if(vistaCorrente==='dashboard' && !modCliente) renderDashboard(); });
+
+  // Turni live dall'app turni-ferie (doc unico)
+  db.collection("turni_app").doc("fagotti_pro").onSnapshot(function(doc){
+    LIVE.turni = (doc.exists && doc.data().turni) ? doc.data().turni : {};
+    if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
+  }, function(){});
+}
+
+/* Normalizza le chiavi turno 'Nome|YYYY-M-D' (mese/giorno non zero-padded)
+   e restituisce chi lavora in una certa data locale. */
+function turniDelGiorno(dataKey){
+  var p = dataKey.split('-');
+  var nonPad = p[0] + '-' + Number(p[1]) + '-' + Number(p[2]); // 2026-7-14
+  var out = [];
+  Object.keys(LIVE.turni).forEach(function(k){
+    var parti = k.split('|');
+    if(parti.length < 2) return;
+    var d = parti[1].trim().split('-');
+    if(d.length !== 3) return;
+    var normDato = d[0] + '-' + Number(d[1]) + '-' + Number(d[2]);
+    if(normDato !== nonPad) return;
+    var v = LIVE.turni[k];
+    var testo;
+    if(v && v.tipo === 'F') testo = 'Ferie';
+    else if(v && v.tipo === 'M') testo = 'Malattia';
+    else if(v && v.tipo === 'PE') testo = 'Permesso' + (v.ore ? ' ' + v.ore + 'h' : '');
+    else if(v && v.inizio) testo = v.inizio + '–' + v.fine;
+    else testo = '—';
+    out.push({ nome:parti[0], testo:testo, lavora:!!(v && v.inizio) });
+  });
+  return out;
+}
 </script>
 <script>
 /* ============================================================
@@ -483,35 +548,73 @@ function render(){
    ============================================================ */
 function renderDashboard(){
   var ok = oggiKey();
-  var turniOggi = state.turni[ok] || {};
-  var alLavoro = 0;
-  for(var id in turniOggi){
-    if(turniOggi[id] && turniOggi[id] !== 'R' && turniOggi[id] !== 'F') alLavoro++;
-  }
-  var nuovi = state.ordini.filter(function(o){ return o.stato === 'nuovo'; }).length;
-  var inLav = state.ordini.filter(function(o){ return o.stato === 'in preparazione'; }).length;
+
+  // ── TURNI live da Firestore (app turni-ferie) ──
+  var inTurno = turniDelGiorno(ok);
+  var alLavoro = inTurno.filter(function(t){ return t.lavora; }).length;
+
+  // ── ORDINI live da Firestore (app Fagotti-ordini) uniti a quelli locali (shop/manuali) ──
+  var ordiniFB = LIVE.ordini.map(function(o){
+    return { fonte:'firebase', cliente:o.cliente, data:o.data, orario:o.orario,
+             prodotto:o.prodotto || (o.salProdotto || ''), consegna:o.consegna };
+  });
+  var ordiniLocali = state.ordini.filter(function(o){ return o.stato !== 'ritirato'; });
+  var totOrdiniAperti = ordiniFB.length + ordiniLocali.length;
+  var oggiOrdini = ordiniFB.filter(function(o){ return o.data === ok; }).length +
+                   ordiniLocali.filter(function(o){ return o.ritiro === ok; }).length;
+
   var listeAperte = state.fornitori.filter(function(f){ return f.lista && f.lista.length; }).length;
 
+  // ── Stato connessione Firestore ──
+  var statoFB = !db ? '<span class="badge err">Firebase offline</span>'
+    : (LIVE.errore ? '<span class="badge err">permessi Firestore</span>'
+    : (LIVE.prontoFB ? '<span class="badge ok">● live</span>' : '<span class="badge warn">connessione…</span>'));
+
+  // ── Box "chi lavora oggi" ──
+  var boxTurni = inTurno.length
+    ? inTurno.sort(function(a,b){ return (b.lavora?1:0)-(a.lavora?1:0); }).map(function(t){
+        return '<div class="turno-riga"><div class="dip">' + esc(t.nome) + '</div>' +
+          '<span class="badge ' + (t.lavora?'ok':'grigio') + ' fisso">' + esc(t.testo) + '</span></div>';
+      }).join('')
+    : '<p class="muted">Nessun turno assegnato per oggi (' + dLocDaKey(ok) + ') nell\'app Turni.</p>';
+
+  // ── Prossimi ordini da Firestore ──
+  var prossimi = ordiniFB.slice().sort(function(a,b){ return (a.data||'') < (b.data||'') ? -1 : 1; })
+    .filter(function(o){ return !o.data || o.data >= ok; }).slice(0,6);
+  var boxOrdini = prossimi.length
+    ? prossimi.map(function(o){
+        return '<div class="evento">' +
+          '<div class="ico ok">🧾</div>' +
+          '<div><div class="txt">' + esc(o.cliente || 'Cliente') + (o.prodotto ? ' — ' + esc(o.prodotto) : '') + '</div>' +
+          '<div class="ora">' + (o.data ? dLocDaKey(o.data) : 'senza data') + (o.orario ? ' · ' + esc(o.orario) : '') +
+          ' · ' + (o.consegna === 'consegna' ? '🚚 consegna' : '🏪 ritiro') + '</div></div></div>';
+      }).join('')
+    : '<p class="muted">Nessun ordine in arrivo dall\'app Ordini.</p>';
+
+  // ── Eventi locali (shop, fornitori, haccp) ──
   var icone = { turno:'📅', ordine:'🧾', fornitore:'🚚', haccp:'🌡️', shop:'🛍️', sistema:'⚙️' };
   var classi = { haccp:'err', fornitore:'oro', ordine:'ok' };
-
   var feed = state.eventi.length
-    ? state.eventi.map(function(ev){
+    ? state.eventi.slice(0,8).map(function(ev){
         return '<div class="evento">' +
           '<div class="ico ' + (classi[ev.tipo]||'') + '">' + (icone[ev.tipo]||'•') + '</div>' +
           '<div><div class="txt">' + esc(ev.testo) + '</div>' +
           '<div class="ora">' + oraLoc(ev.ts) + '</div></div></div>';
       }).join('')
-    : '<p class="muted">Nessun evento ancora. Cambi turno, nuovi ordini e liste fornitori inviate compariranno qui.</p>';
+    : '<p class="muted">Ordini shop e liste fornitori compariranno qui.</p>';
 
   document.getElementById('v-dashboard').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<span class="muted">Aggiornamento in tempo reale</span>' + statoFB + '</div>' +
     '<div class="kpi-grid">' +
-      '<div class="kpi" onclick="vai(\'ordini\')"><div class="num viola">' + nuovi + '</div><div class="lab">Ordini nuovi</div></div>' +
-      '<div class="kpi" onclick="vai(\'ordini\')"><div class="num">' + inLav + '</div><div class="lab">In preparazione</div></div>' +
-      '<div class="kpi" onclick="vai(\'turni\')"><div class="num oro">' + alLavoro + '</div><div class="lab">Al lavoro oggi</div></div>' +
-      '<div class="kpi" onclick="vai(\'fornitori\')"><div class="num">' + listeAperte + '</div><div class="lab">Liste fornitori aperte</div></div>' +
+      '<div class="kpi" onclick="apriApp(state.settings.urlOrdini, true)"><div class="num viola">' + totOrdiniAperti + '</div><div class="lab">Ordini aperti</div></div>' +
+      '<div class="kpi" onclick="apriApp(state.settings.urlOrdini, true)"><div class="num">' + oggiOrdini + '</div><div class="lab">Per oggi</div></div>' +
+      '<div class="kpi" onclick="apriApp(state.settings.urlTurni, true)"><div class="num oro">' + alLavoro + '</div><div class="lab">Al lavoro oggi</div></div>' +
+      '<div class="kpi" onclick="vai(\'fornitori\')"><div class="num">' + listeAperte + '</div><div class="lab">Liste fornitori</div></div>' +
     '</div>' +
-    '<div class="card"><h3>🔔 Attività recente</h3>' + feed + '</div>';
+    '<div class="card"><h3>📅 In turno oggi · ' + dLocDaKey(ok) + '</h3>' + boxTurni + '</div>' +
+    '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
+    '<div class="card"><h3>🔔 Attività Suite (shop, fornitori, HACCP)</h3>' + feed + '</div>';
 }
 
 /* ============================================================
@@ -1555,6 +1658,7 @@ function avvia(){
   var d = new Date();
   document.getElementById('hdrData').textContent =
     d.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' });
+  if(!modCliente) ascoltaFirestore();
   render();
 }
 
