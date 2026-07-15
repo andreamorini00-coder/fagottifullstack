@@ -2539,6 +2539,8 @@ function confermaOrdineTorta(){
    ============================================================ */
 function avvia(){
   var h = location.hash.replace('#','');
+  /* Alias per i link di vecchio formato (era hub): ?shop=1 → vetrina cliente */
+  if(!h && /[?&]shop=1/.test(location.search)) h = 'negozio';
   if(h === 'negozio' || h === 'ordina'){
     modCliente = h;
   }
