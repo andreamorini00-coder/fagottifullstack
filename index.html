@@ -105,6 +105,15 @@ label.lbl{display:block;font-size:11.5px;color:var(--grigio);margin:8px 0 4px;fo
 .badge.warn{background:var(--warn-soft);color:var(--warn)}
 .badge.err{background:var(--err-soft);color:var(--err)}
 .badge.grigio{background:#f3f4f6;color:var(--grigio)}
+.badge.mat{background:#dcfce7;color:#166534}
+.badge.pom{background:#fee2e2;color:#991b1b}
+.badge.t3{background:#1e3a8a;color:#dbeafe}
+.badge.ferie{background:#f3f4f6;color:#9ca3af}
+.turno-riga .fascia{flex:0 0 4px;align-self:stretch;border-radius:2px;min-height:34px}
+.fascia.mat{background:#22c55e}
+.fascia.pom{background:#ef4444}
+.fascia.t3{background:#1e3a8a}
+.fascia.ferie{background:#d1d5db}
 .chip{
   display:inline-flex;align-items:center;gap:5px;background:var(--viola-soft);color:var(--viola);
   border-radius:999px;padding:4px 10px;font-size:12px;font-family:'DM Mono',monospace;margin:2px 3px 2px 0;
@@ -474,7 +483,12 @@ window.addEventListener('storage', function(e){
    legge ordini (collection 'ordini') e turni (turni_app/fagotti_pro)
    dalle app Fagotti e aggiorna la dashboard in tempo reale.
    ============================================================ */
-var LIVE = { ordini:[], ordiniOnline:[], turni:{}, catalogo:{}, prontoFB:false, errore:false };
+var TURNI_DEFAULT = [
+  { nome:'Mattina',    emoji:'🟢', inizio:'07:00', fine:'14:00', colore:'mat' },
+  { nome:'Pomeriggio', emoji:'🔴', inizio:'14:00', fine:'21:00', colore:'pom' },
+  { nome:'Turno 3',    emoji:'🔵', inizio:'',      fine:'',      colore:'t3', attivo:false }
+];
+var LIVE = { ordini:[], ordiniOnline:[], turni:{}, turniConf:TURNI_DEFAULT, catalogo:{}, prontoFB:false, errore:false };
 var db = null;
 
 (function initFirebase(){
@@ -502,7 +516,10 @@ function ascoltaFirestore(){
 
   // Turni live dall'app turni-ferie (doc unico)
   db.collection("turni_app").doc("fagotti_pro").onSnapshot(function(doc){
-    LIVE.turni = (doc.exists && doc.data().turni) ? doc.data().turni : {};
+    var d = doc.exists ? (doc.data() || {}) : {};
+    LIVE.turni = d.turni || {};
+    // Stessa configurazione dell'app Turni: 🟢 Mattina · 🔴 Pomeriggio · 🔵 Turno 3
+    if(d.impostazioni && d.impostazioni.turni && d.impostazioni.turni.length) LIVE.turniConf = d.impostazioni.turni;
     if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
   }, function(){});
 
@@ -573,9 +590,44 @@ function turniDelGiorno(dataKey){
     else if(v && v.tipo === 'PE') testo = 'Permesso' + (v.ore ? ' ' + v.ore + 'h' : '');
     else if(v && v.inizio) testo = v.inizio + '–' + v.fine;
     else testo = '—';
-    out.push({ nome:parti[0], testo:testo, lavora:!!(v && v.inizio) });
+    var lavora = !!(v && v.inizio);
+    var cls = classificaTurno(v);
+    out.push({ nome:parti[0], testo:testo, lavora:lavora, colore:cls.colore,
+      emoji:cls.emoji, etichetta:cls.nome, min:(lavora ? hhmmMin(v.inizio) : 9999) });
+  });
+  // Ordine cronologico: prima chi entra presto, in fondo ferie/malattia/permessi
+  out.sort(function(a,b){
+    if(a.min !== b.min) return a.min - b.min;
+    return a.nome.localeCompare(b.nome);
   });
   return out;
+}
+
+function hhmmMin(s){
+  var m = String(s||'').match(/^(\d{1,2}):(\d{2})$/);
+  return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : 9999;
+}
+
+/* Assegna il turno confrontando l'ora di inizio con i turni configurati
+   nell'app Turni: vince quello con l'inizio più vicino. */
+function classificaTurno(v){
+  if(!v || !v.inizio){
+    if(v && v.tipo === 'F') return { colore:'ferie', emoji:'🏖️', nome:'Ferie' };
+    if(v && v.tipo === 'M') return { colore:'ferie', emoji:'🤒', nome:'Malattia' };
+    if(v && v.tipo === 'PE') return { colore:'ferie', emoji:'📄', nome:'Permesso' };
+    return { colore:'ferie', emoji:'', nome:'' };
+  }
+  var min = hhmmMin(v.inizio);
+  var best = null, bestD = 99999;
+  (LIVE.turniConf || TURNI_DEFAULT).forEach(function(t){
+    if(!t || !t.inizio) return;
+    if(t.attivo === false && t.colore === 't3') return;   // turno 3 spento
+    var d = Math.abs(hhmmMin(t.inizio) - min);
+    if(d < bestD){ bestD = d; best = t; }
+  });
+  if(!best) return { colore:'mat', emoji:'🟢', nome:'Mattina' };
+  return { colore:best.colore || 'mat', emoji:best.emoji || '🟢',
+    nome:best.nome || (best.colore === 'pom' ? 'Pomeriggio' : best.colore === 't3' ? 'Turno 3' : 'Mattina') };
 }
 </script>
 <script>
@@ -650,10 +702,14 @@ function renderDashboard(){
 
   // ── Box "chi lavora oggi" ──
   var boxTurni = inTurno.length
-    ? inTurno.sort(function(a,b){ return (b.lavora?1:0)-(a.lavora?1:0); }).map(function(t){
-        return '<div class="turno-riga"><div class="dip">' + esc(t.nome) + '</div>' +
-          '<span class="badge ' + (t.lavora?'ok':'grigio') + ' fisso">' + esc(t.testo) + '</span></div>';
-      }).join('')
+    ? inTurno.map(function(t){
+        return '<div class="turno-riga">' +
+          '<div class="fascia ' + t.colore + '"></div>' +
+          '<div class="dip">' + esc(t.nome) +
+            (t.etichetta ? '<div class="dett">' + t.emoji + ' ' + esc(t.etichetta) + '</div>' : '') +
+          '</div>' +
+          '<span class="badge ' + t.colore + ' fisso">' + esc(t.testo) + '</span></div>';
+      }).join('') + legendaTurni()
     : '<p class="muted">Nessun turno assegnato per oggi (' + dLocDaKey(ok) + ') nell\'app Turni.</p>';
 
   // ── Prossimi ordini da Firestore ──
@@ -711,6 +767,16 @@ function renderDashboard(){
     '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
     '<div class="card"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>' +
     '<div class="card"><h3>🔔 Attività Suite (shop, fornitori, HACCP)</h3>' + feed + '</div>';
+}
+
+function legendaTurni(){
+  var voci = (LIVE.turniConf || TURNI_DEFAULT).filter(function(t){
+    return t && t.inizio && !(t.attivo === false && t.colore === 't3');
+  }).map(function(t){
+    return '<span class="badge ' + (t.colore||'mat') + '">' + (t.emoji||'') + ' ' +
+      esc(t.nome || '') + ' ' + esc(t.inizio) + '–' + esc(t.fine) + '</span>';
+  }).join(' ');
+  return voci ? '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + voci + '</div>' : '';
 }
 
 /* ============================================================
@@ -1682,8 +1748,9 @@ function renderBot(){
       '</div>' +
       '<p class="muted" style="margin-bottom:8px">È il numero che riceve i messaggi dal bot: il tasto "Parla con la pasticceria" e l\'invio ordine puntano qui.</p>' +
       '<input type="tel" id="bcWa" value="' + esc(c.waNumber) + '" placeholder="39 06 1234567 (con prefisso)">' +
-      '<label class="lbl">Link allo Shop (opzionale, mostrato nel bot)</label>' +
+      '<label class="lbl">Link allo Shop (il bottone 🛍️ Shop del menu)</label>' +
       '<input type="text" id="bcShop" value="' + esc(c.shopUrl) + '" placeholder="https://...">' +
+      '<button class="btn sec blocco" style="margin:6px 0 0" onclick="usaShopSuite()">↩︎ Usa la vetrina della Suite</button>' +
       '<button class="btn oro blocco" onclick="pubblicaCatalogo()">🚀 Pubblica sul bot</button>' +
     '</div>' +
     '<div class="card"><h3>🔗 Link del bot per i clienti</h3>' + linkBot + '</div>' +
@@ -1780,6 +1847,13 @@ function rimuoviVoceBot(campo, i){
   flushBotForm();
   state.botCat[campo].splice(i, 1);
   salva(); renderBot();
+}
+
+function usaShopSuite(){
+  flushBotForm();
+  state.botCat.shopUrl = urlShopSuite();
+  salva(); renderBot();
+  toast('Impostato: ' + urlShopSuite());
 }
 
 function copiaTesto(t){
@@ -1956,11 +2030,16 @@ function inviaListaWa(fid){
 /* ============================================================
    IMPOSTAZIONI
    ============================================================ */
+/* Il link unico è UNO: la pagina-menu del bot con i tre bottoni.
+   Da lì il cliente sceglie torta, shop o WhatsApp. */
 function linkCliente(){
-  if(state.settings.dest === 'bot'){
-    return state.botCat.pageUrl || '(apri una volta WaFagotti online per generare il link)';
-  }
-  return location.href.split('#')[0] + '#' + (state.settings.dest || 'negozio');
+  return state.botCat.pageUrl || '(apri una volta il bot online per generare il link)';
+}
+
+/* Indirizzo della vetrina Shop interna: è quello che il bot apre
+   col bottone "Shop", e va pubblicato nel catalogo. */
+function urlShopSuite(){
+  return location.href.split('#')[0].split('?')[0] + '#negozio';
 }
 
 function renderImpostazioni(){
@@ -1973,13 +2052,9 @@ function renderImpostazioni(){
       '<button class="btn blocco" onclick="salvaImpostazioni()">Salva</button>' +
     '</div>' +
     '<div class="card"><h3>🔗 Link unico per i clienti</h3>' +
-      '<p class="muted">Condividi questo link (Instagram, WhatsApp, Google): il cliente vede solo la pagina scelta, senza il gestionale.</p>' +
-      '<label class="lbl">Il link porta a</label>' +
-      '<select id="setDest" onchange="state.settings.dest=this.value;salva();render()">' +
-        '<option value="negozio"' + (state.settings.dest === 'negozio' ? ' selected' : '') + '>🛍️ Pagina Shop (interna Suite)</option>' +
-        '<option value="ordina"' + (state.settings.dest === 'ordina' ? ' selected' : '') + '>🎂 Pagina Ordina Torta (interna Suite)</option>' +
-        '<option value="bot"' + (state.settings.dest === 'bot' ? ' selected' : '') + '>🤖 Bot WhatsApp torte (WaFagotti)</option>' +
-      '</select>' +
+      '<p class="muted">Questo è <b>il link</b> da mettere su Instagram, Google e WhatsApp. Apre il menu con i tre bottoni: 🎂 Ordina la tua torta · 🛍️ Shop · 💬 Parla con la pasticceria.</p>' +
+      (state.botCat.pageUrl ? '' :
+        '<p class="muted" style="color:var(--err)">⚠️ Apri una volta il bot online: pubblicherà da solo il suo indirizzo qui.</p>') +
       '<label class="lbl">Link</label>' +
       '<input type="text" id="setLink" readonly value="' + esc(linkCliente()) + '">' +
       '<div class="azioni">' +
