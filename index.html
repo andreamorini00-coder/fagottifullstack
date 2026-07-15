@@ -359,7 +359,7 @@ function statoDefault(){
     prodotti: seedProdotti(),
     fornitori: seedFornitori(),
     shopSped:{ attiva:false, roma:5, fuori:9 },
-    botCat:{ caricato:false, waNumber:'', pageUrl:'', shopUrl:'', costoConsegna:10,
+    botCat:{ caricato:false, waNumber:'', pageUrl:'', shopUrl:'', consegnaVicino:10, consegnaLontano:15,
       kgPersona:0.15, stimaMin:85, stimaMax:115, listino:[], farciture:[], decorazioni:[], orari:[] },
     bot:{ templates:[
       { id:'t1', nome:'Conferma ordine', testo:'Ciao {cliente}! Confermiamo il tuo ordine per il {data}. Grazie da {attivita}!' },
@@ -390,6 +390,11 @@ function carica(){
         return !(seedNegozio && !personalizzato);
       });
       s.puliziaShop1 = true;
+    }
+    if(s.botCat && s.botCat.costoConsegna !== undefined){
+      if(s.botCat.consegnaVicino === undefined) s.botCat.consegnaVicino = s.botCat.costoConsegna;
+      if(s.botCat.consegnaLontano === undefined) s.botCat.consegnaLontano = 15;
+      delete s.botCat.costoConsegna;
     }
     if(s.shopSped && s.shopSped.fasce){
       s.shopSped = { attiva:!!s.shopSped.attiva,
@@ -523,7 +528,9 @@ function caricaCatalogoBot(){
       state.botCat.caricato = true;
       state.botCat.waNumber = c.waNumber || '';
       state.botCat.shopUrl = c.shopUrl || '';
-      if(c.costoConsegna !== undefined && c.costoConsegna !== null) state.botCat.costoConsegna = c.costoConsegna;
+      if(c.costoConsegna !== undefined && c.costoConsegna !== null) state.botCat.consegnaVicino = c.costoConsegna;
+      if(c.consegnaVicino !== undefined && c.consegnaVicino !== null) state.botCat.consegnaVicino = c.consegnaVicino;
+      if(c.consegnaLontano !== undefined && c.consegnaLontano !== null) state.botCat.consegnaLontano = c.consegnaLontano;
       if(c.kgPersona) state.botCat.kgPersona = c.kgPersona;
       if(c.stimaMin) state.botCat.stimaMin = c.stimaMin;
       if(c.stimaMax) state.botCat.stimaMax = c.stimaMax;
@@ -689,7 +696,7 @@ function renderDashboard(){
             (o.consegna && o.consegna.indirizzo ? ' · 🚚 ' + esc(o.consegna.indirizzo) : '') +
             (o.telefono ? ' · 📞 ' + esc(o.telefono) : '') + '</div></div></div>';
       }).join('')
-    : '<p class="muted">Nessun ordine dal bot WhatsApp.</p>';
+    : '<p class="muted">Nessun ordine dallo Shop. Le torte ordinate dal bot arrivano direttamente in Ordini.</p>';
 
   document.getElementById('v-dashboard').innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
@@ -702,7 +709,7 @@ function renderDashboard(){
     '</div>' +
     '<div class="card"><h3>📅 In turno oggi · ' + dLocDaKey(ok) + '</h3>' + boxTurni + '</div>' +
     '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
-    '<div class="card"><h3>🤖🛍️ Ordini online (bot &amp; shop)</h3>' + boxOnline + '</div>' +
+    '<div class="card"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>' +
     '<div class="card"><h3>🔔 Attività Suite (shop, fornitori, HACCP)</h3>' + feed + '</div>';
 }
 
@@ -1184,9 +1191,13 @@ function renderShop(){
     '</div>' +
     '<div class="card"><h3>➕ Inserisci prodotto</h3>' +
       '<label class="lbl">Nome</label><input type="text" id="npNome" placeholder="Es. Panettone artigianale">' +
+      '<label class="lbl">Foto (link immagine — opzionale)</label>' +
+      '<input type="text" id="npFoto" placeholder="https://...">' +
+      '<label class="lbl">Formati con prezzo (nome=prezzo, separati da virgola — opzionale)</label>' +
+      '<input type="text" id="npFormati" placeholder="750g=22, 1kg=28">' +
       '<label class="lbl">Prezzo base € (se non usi i formati)</label>' +
       '<input type="number" id="npPrezzo" step="0.10" min="0" placeholder="28.00">' +
-      '<label class="lbl">Gusti / varianti (separati da virgola — opzionale)</label>' +
+      '<label class="lbl">Gusti (separati da virgola — opzionale)</label>' +
       '<input type="text" id="npVar" placeholder="Cioccolato, Vaniglia, Caramello salato">' +
       '<button class="btn blocco" onclick="nuovoProdotto()">Crea prodotto</button>' +
     '</div>' +
@@ -1319,9 +1330,24 @@ function nuovoProdotto(){
     .map(function(v){ return v.trim(); })
     .filter(function(v){ return v; })
     .map(function(v){ return { nome:v, disp:true }; });
+  /* split sulle virgole, ma "60,50" (decimale italiano) resta unito:
+     i frammenti senza '=' vengono riattaccati alla voce precedente */
+  var grezzi = document.getElementById('npFormati').value.split(',');
+  var vociFmt = [];
+  grezzi.forEach(function(t){
+    if(t.indexOf('=') >= 0) vociFmt.push(t);
+    else if(vociFmt.length && t.trim()) vociFmt[vociFmt.length-1] += ',' + t;
+  });
+  var formati = vociFmt.map(function(f){
+      var parti = f.split('=');
+      return { nome:parti[0].trim(), prezzo:parseFloat(String(parti[1]||'').trim().replace(',','.')) || 0, stripe:'' };
+    })
+    .filter(function(f){ return f.nome; });
+  if(!formati.length && !prezzo){ toast('Metti un prezzo base o almeno un formato'); return; }
   state.prodotti.push({
     id:uid(), nome:nome, prezzo:prezzo, um:'pz', cat:'negozio',
-    varianti:varianti, formati:[], foto:'', desc:'', stripe:'',
+    varianti:varianti, formati:formati,
+    foto:document.getElementById('npFoto').value.trim(), desc:'', stripe:'',
     allergeni:[], ingredienti:'', attivo:true
   });
   salva();
@@ -1672,10 +1698,12 @@ function renderBot(){
       '</div>' +
     '</div>' +
     '<div class="card"><h3>⚙️ Parametri bot</h3>' +
+      '<p class="muted" style="margin-bottom:6px">🚗 Consegna torte: solo Roma città, due fasce.</p>' +
       '<div class="riga">' +
-        '<div><label class="lbl">Costo consegna €</label><input type="number" id="bcCons" step="1" min="0" value="' + (c.costoConsegna||0) + '"></div>' +
-        '<div><label class="lbl">Kg a persona</label><input type="number" id="bcKgP" step="0.01" min="0" value="' + (c.kgPersona||0.15) + '"></div>' +
+        '<div><label class="lbl">Roma entro 15 km €</label><input type="number" id="bcConsV" step="1" min="0" value="' + (c.consegnaVicino||0) + '"></div>' +
+        '<div><label class="lbl">Roma oltre 15 km €</label><input type="number" id="bcConsL" step="1" min="0" value="' + (c.consegnaLontano||0) + '"></div>' +
       '</div>' +
+      '<label class="lbl">Kg a persona</label><input type="number" id="bcKgP" step="0.01" min="0" value="' + (c.kgPersona||0.15) + '">' +
       '<div class="riga">' +
         '<div><label class="lbl">Stima min %</label><input type="number" id="bcMin" step="1" value="' + (c.stimaMin||85) + '"></div>' +
         '<div><label class="lbl">Stima max %</label><input type="number" id="bcMax" step="1" value="' + (c.stimaMax||115) + '"></div>' +
@@ -1705,7 +1733,8 @@ function flushBotForm(){
   var v;
   if((v = g('bcWa')) !== null) c.waNumber = v.trim();
   if((v = g('bcShop')) !== null) c.shopUrl = v.trim();
-  if((v = g('bcCons')) !== null && v !== '') c.costoConsegna = Number(v);
+  if((v = g('bcConsV')) !== null && v !== '') c.consegnaVicino = Number(v);
+  if((v = g('bcConsL')) !== null && v !== '') c.consegnaLontano = Number(v);
   if((v = g('bcKgP')) !== null && v !== '') c.kgPersona = Number(v);
   if((v = g('bcMin')) !== null && v !== '') c.stimaMin = Number(v);
   if((v = g('bcMax')) !== null && v !== '') c.stimaMax = Number(v);
@@ -1772,7 +1801,9 @@ function pubblicaCatalogo(){
   var payload = {
     waNumber: wa,
     shopUrl: c.shopUrl || '',
-    costoConsegna: Number(c.costoConsegna) || 0,
+    consegnaVicino: Number(c.consegnaVicino) || 0,
+    consegnaLontano: Number(c.consegnaLontano) || 0,
+    costoConsegna: Number(c.consegnaVicino) || 0,
     kgPersona: Number(c.kgPersona) || 0.15,
     stimaMin: Number(c.stimaMin) || 85,
     stimaMax: Number(c.stimaMax) || 115,
