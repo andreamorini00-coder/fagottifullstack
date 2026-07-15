@@ -238,6 +238,15 @@ footer.firma{
   .etichetta .ingr{font-size:9pt;margin-bottom:3mm}
   .etichetta .allg{font-size:10pt;font-weight:bold}
   .etichetta .ditta{font-size:8pt;margin-top:4mm;color:#333}
+  .foglio{font-family:sans-serif;color:#000}
+  .foglio h1{font-size:15pt;margin-bottom:1mm}
+  .foglio .sotto{font-size:9pt;color:#333;margin-bottom:5mm}
+  .foglio h2{font-size:12pt;margin:5mm 0 2mm;border-bottom:1.5pt solid #000;padding-bottom:1mm}
+  .foglio .voce{font-size:10pt;padding:1.6mm 0;border-bottom:0.4pt solid #999;page-break-inside:avoid}
+  .foglio .voce .box{display:inline-block;width:4mm;height:4mm;border:1pt solid #000;margin-right:2.5mm;vertical-align:middle}
+  .foglio .voce b{font-size:10.5pt}
+  .foglio .voce .sub{font-size:8.5pt;color:#333;margin-left:6.5mm}
+  .foglio .tot{font-size:9pt;font-weight:bold;color:#000}
 }
 @media(min-width:640px){
   .kpi-grid{grid-template-columns:repeat(4,1fr)}
@@ -768,41 +777,85 @@ function totOrdine(o){
   return o.righe.reduce(function(t,r){ return t + (r.prezzo||0) * r.qta; }, 0);
 }
 
-function renderOrdini(){
-  // ── Helper descrizione, stessi formati dell'app Ordini ──
-  function orMin(s){
-    if(!s) return 9999;
-    var m = String(s).match(/^(\d{1,2}):(\d{2})$/);
-    return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : 9999;
-  }
-  function cKg(pers, gr){ return (Number(pers)||8) * (Number(gr)||150) / 1000; }
-  function tLine(t){
-    var pw;
-    if(t.modo === 'kg') pw = t.peso || '1kg';
-    else if(t.modo === 'pz') pw = (t.pezzi||1) + ' pz';
-    else pw = (t.persone||8) + 'p (~' + cKg(t.persone, t.grammi).toFixed(2) + 'kg)';
-    var l = '🎂 ' + esc(t.prodotto) + ' · ' + esc(pw);
-    if(t.modo !== 'pz' && (t.qtaTorte||1) > 1) l += ' × ' + t.qtaTorte + ' torte';
-    if(t.farcitura) l += ' | ' + esc(t.farcitura);
-    if(t.decorazione) l += ' | ' + esc(t.decorazione);
-    return l;
-  }
-  function sLine(s){
-    var sw = (s.salModo === 'kg' || s.modo === 'kg')
-      ? (s.salPeso || s.peso || '1kg')
-      : ((s.salQta || s.qta || 1) + ' pz');
-    return '🥗 ' + esc(s.salProdotto || s.prodotto) + ' · ' + esc(sw);
-  }
-  function righeOrdineFB(o){
-    var r = [];
-    if(o.prodotto) r.push(tLine({ prodotto:o.prodotto, modo:o.modo, peso:o.peso, persone:o.persone,
-      grammi:o.grammi, qtaTorte:o.qtaTorte, pezzi:o.pezzi, farcitura:o.farcitura, decorazione:o.decorazione }));
-    if(o.torteExtra) o.torteExtra.forEach(function(t){ r.push(tLine(t)); });
-    if(o.salProdotto) r.push(sLine(o));
-    if(o.salatiExtra) o.salatiExtra.forEach(function(s){ r.push(sLine(s)); });
-    return r;
-  }
+/* ── Helper descrizione ordini, stessi formati dell'app Ordini ── */
+function orMin(s){
+  if(!s) return 9999;
+  var m = String(s).match(/^(\d{1,2}):(\d{2})$/);
+  return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : 9999;
+}
+function cKg(pers, gr){ return (Number(pers)||8) * (Number(gr)||150) / 1000; }
+function pesoTorta(t){
+  if(t.modo === 'kg') return t.peso || '1kg';
+  if(t.modo === 'pz') return (t.pezzi||1) + ' pz';
+  return (t.persone||8) + 'p (~' + cKg(t.persone, t.grammi).toFixed(2) + 'kg)';
+}
+function tLine(t){
+  var l = '🎂 ' + esc(t.prodotto) + ' · ' + esc(pesoTorta(t));
+  if(t.modo !== 'pz' && (t.qtaTorte||1) > 1) l += ' × ' + t.qtaTorte + ' torte';
+  if(t.farcitura) l += ' | ' + esc(t.farcitura);
+  if(t.decorazione) l += ' | ' + esc(t.decorazione);
+  return l;
+}
+function sLine(s){
+  var sw = (s.salModo === 'kg' || s.modo === 'kg')
+    ? (s.salPeso || s.peso || '1kg')
+    : ((s.salQta || s.qta || 1) + ' pz');
+  return '🥗 ' + esc(s.salProdotto || s.prodotto) + ' · ' + esc(sw);
+}
+function righeOrdineFB(o){
+  var r = [];
+  if(o.prodotto) r.push(tLine({ prodotto:o.prodotto, modo:o.modo, peso:o.peso, persone:o.persone,
+    grammi:o.grammi, qtaTorte:o.qtaTorte, pezzi:o.pezzi, farcitura:o.farcitura, decorazione:o.decorazione }));
+  if(o.torteExtra) o.torteExtra.forEach(function(t){ r.push(tLine(t)); });
+  if(o.salProdotto) r.push(sLine(o));
+  if(o.salatiExtra) o.salatiExtra.forEach(function(s){ r.push(sLine(s)); });
+  return r;
+}
 
+/* ── Voci strutturate del giorno (per stampa raggruppata) ── */
+function vociGiorno(dataKey){
+  var voci = [];
+  function estraiTorta(t, o){
+    var extra = [];
+    if(t.farcitura) extra.push('Farcitura: ' + t.farcitura);
+    if(t.decorazione) extra.push('Decorazione: ' + t.decorazione);
+    voci.push({ prodotto:(t.prodotto||'Torta'), det:pesoTorta(t),
+      qta:(t.modo === 'pz' ? (t.pezzi||1) : (t.qtaTorte||1)),
+      extra:extra.join(' · '), cliente:(o.cliente||o.nome||''), orario:(o.orario||''),
+      consegna:!!o.consegna, note:(o.note||'') });
+  }
+  LIVE.ordini.forEach(function(o){
+    if(o.data !== dataKey) return;
+    if(o.prodotto) estraiTorta(o, o);
+    (o.torteExtra||[]).forEach(function(t){ estraiTorta(t, o); });
+    if(o.salProdotto) voci.push({ prodotto:o.salProdotto,
+      det:((o.salModo === 'kg') ? (o.salPeso||'1kg') : ((o.salQta||1) + ' pz')),
+      qta:(o.salModo === 'kg' ? 1 : (o.salQta||1)), extra:'',
+      cliente:(o.cliente||''), orario:(o.orario||''), consegna:!!o.consegna, note:(o.note||'') });
+    (o.salatiExtra||[]).forEach(function(s){
+      voci.push({ prodotto:(s.salProdotto||s.prodotto||''),
+        det:((s.salModo === 'kg' || s.modo === 'kg') ? (s.salPeso||s.peso||'1kg') : ((s.salQta||s.qta||1) + ' pz')),
+        qta:((s.salModo === 'kg' || s.modo === 'kg') ? 1 : (s.salQta||s.qta||1)), extra:'',
+        cliente:(o.cliente||''), orario:(o.orario||''), consegna:!!o.consegna, note:(o.note||'') });
+    });
+  });
+  state.ordini.forEach(function(o){
+    if(o.ritiro !== dataKey || o.stato === 'ritirato') return;
+    if(o.righe && o.righe.length){
+      o.righe.forEach(function(r){
+        voci.push({ prodotto:r.nome, det:(r.qta + ' pz' + (r.variante ? ' · ' + r.variante : '')),
+          qta:(r.qta||1), extra:'', cliente:(o.cliente||''), orario:(o.ora||''),
+          consegna:false, note:(o.note||'') });
+      });
+    }else if(o.descrizione){
+      voci.push({ prodotto:'Ordine manuale', det:o.descrizione, qta:1, extra:'',
+        cliente:(o.cliente||''), orario:(o.ora||''), consegna:false, note:(o.note||'') });
+    }
+  });
+  return voci;
+}
+
+function renderOrdini(){
   // ── Ordini del giorno selezionato: Firestore + locali (shop/manuali) ──
   var delGiorno = LIVE.ordini.filter(function(o){ return o.data === dataOrdini; })
     .sort(function(a,b){
@@ -879,6 +932,10 @@ function renderOrdini(){
         '<button class="btn sec" onclick="dataOrdini=oggiKey();render()">Oggi</button>' +
         '<span class="badge ' + (totGiorno ? 'ok' : 'grigio') + ' fisso">' + totGiorno + ' ordini</span>' +
       '</div>' +
+      '<div class="riga" style="margin-top:8px">' +
+        '<button class="btn oro" onclick="stampaLaboratorio(\'crono\')">🖨️ Stampa cronologico</button>' +
+        '<button class="btn oro" onclick="stampaLaboratorio(\'prodotto\')">🖨️ Stampa per prodotto</button>' +
+      '</div>' +
     '</div>' +
     '<div class="card"><h3>' + dLocDaKey(dataOrdini) + '</h3>' + corpo + '</div>' +
     '<div class="card"><h3>✍️ Nuovo ordine rapido (Suite)</h3>' +
@@ -906,6 +963,56 @@ function spostaGiorno(delta){
 function waTelefono(tel, cliente){
   var testo = compilaTemplate(state.bot.templates[0].testo, { cliente:cliente, ritiro:dataOrdini });
   window.open('https://wa.me/' + telWa(tel) + '?text=' + encodeURIComponent(testo), '_blank');
+}
+
+/* ── Foglio di produzione per il laboratorio ──
+   modo 'crono': ordini in sequenza oraria (come l'app Ordini)
+   modo 'prodotto': raggruppati per prodotto con totali (comodo in laboratorio) */
+function stampaLaboratorio(modo){
+  var voci = vociGiorno(dataOrdini);
+  if(!voci.length){ toast('Nessun ordine da stampare per ' + dLocDaKey(dataOrdini)); return; }
+
+  var intesta = '<h1>' + esc(state.settings.nome) + ' — Produzione del ' + dLocDaKey(dataOrdini) + '</h1>' +
+    '<div class="sotto">' + voci.length + ' voci · stampato ' + oraLoc(Date.now()) +
+    ' · vista ' + (modo === 'crono' ? 'cronologica' : 'per prodotto') + '</div>';
+
+  var corpo = '';
+  if(modo === 'crono'){
+    var ordinate = voci.slice().sort(function(a,b){
+      var d = orMin(a.orario) - orMin(b.orario);
+      return d !== 0 ? d : a.cliente.localeCompare(b.cliente);
+    });
+    corpo = ordinate.map(function(v){
+      return '<div class="voce"><span class="box"></span>' +
+        '<b>' + (v.orario || '—:—') + '</b> · ' + esc(v.prodotto) + ' · ' + esc(v.det) +
+        ' — ' + esc(v.cliente) + (v.consegna ? ' 🚚' : '') +
+        ((v.extra || v.note) ? '<div class="sub">' + esc([v.extra, v.note].filter(Boolean).join(' · ')) + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }else{
+    var gruppi = {};
+    voci.forEach(function(v){
+      var k = v.prodotto.trim().toLowerCase();
+      if(!gruppi[k]) gruppi[k] = { nome:v.prodotto, voci:[], tot:0 };
+      gruppi[k].voci.push(v);
+      gruppi[k].tot += Number(v.qta) || 1;
+    });
+    corpo = Object.keys(gruppi).sort().map(function(k){
+      var g = gruppi[k];
+      var righe = g.voci.slice().sort(function(a,b){ return orMin(a.orario) - orMin(b.orario); })
+        .map(function(v){
+          return '<div class="voce"><span class="box"></span>' +
+            esc(v.det) + ' — <b>' + esc(v.cliente) + '</b>' +
+            (v.orario ? ' (' + v.orario + (v.consegna ? ', 🚚 consegna' : ', ritiro') + ')' : (v.consegna ? ' (🚚 consegna)' : '')) +
+            ((v.extra || v.note) ? '<div class="sub">' + esc([v.extra, v.note].filter(Boolean).join(' · ')) + '</div>' : '') +
+            '</div>';
+        }).join('');
+      return '<h2>' + esc(g.nome) + ' <span class="tot">· ' + g.tot + ' totali</span></h2>' + righe;
+    }).join('');
+  }
+
+  document.getElementById('printArea').innerHTML = '<div class="foglio">' + intesta + corpo + '</div>';
+  window.print();
 }
 
 function nuovoOrdineManuale(){
