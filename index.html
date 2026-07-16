@@ -108,11 +108,15 @@ label.lbl{display:block;font-size:11.5px;color:var(--grigio);margin:8px 0 4px;fo
 .badge.mat{background:#dcfce7;color:#166534}
 .badge.pom{background:#fee2e2;color:#991b1b}
 .badge.t3{background:#1e3a8a;color:#dbeafe}
+.badge.t4{background:#ede9fe;color:#5b21b6}
+.badge.t5{background:#ffedd5;color:#9a3412}
 .badge.ferie{background:#f3f4f6;color:#9ca3af}
 .turno-riga .fascia{flex:0 0 4px;align-self:stretch;border-radius:2px;min-height:34px}
 .fascia.mat{background:#22c55e}
 .fascia.pom{background:#ef4444}
 .fascia.t3{background:#1e3a8a}
+.fascia.t4{background:#7c3aed}
+.fascia.t5{background:#f59e0b}
 .fascia.ferie{background:#d1d5db}
 .chip{
   display:inline-flex;align-items:center;gap:5px;background:var(--viola-soft);color:var(--viola);
@@ -588,6 +592,7 @@ function turniDelGiorno(dataKey){
     if(v && v.tipo === 'F') testo = 'Ferie';
     else if(v && v.tipo === 'M') testo = 'Malattia';
     else if(v && v.tipo === 'PE') testo = 'Permesso' + (v.ore ? ' ' + v.ore + 'h' : '');
+    else if(v && v.tipo === 'MT') testo = 'Maternità';
     else if(v && v.inizio) testo = v.inizio + '–' + v.fine;
     else testo = '—';
     var lavora = !!(v && v.inizio);
@@ -615,13 +620,14 @@ function classificaTurno(v){
     if(v && v.tipo === 'F') return { colore:'ferie', emoji:'🏖️', nome:'Ferie' };
     if(v && v.tipo === 'M') return { colore:'ferie', emoji:'🤒', nome:'Malattia' };
     if(v && v.tipo === 'PE') return { colore:'ferie', emoji:'📄', nome:'Permesso' };
+    if(v && v.tipo === 'MT') return { colore:'ferie', emoji:'🤱', nome:'Maternità' };
     return { colore:'ferie', emoji:'', nome:'' };
   }
   var min = hhmmMin(v.inizio);
   var best = null, bestD = 99999;
   (LIVE.turniConf || TURNI_DEFAULT).forEach(function(t){
     if(!t || !t.inizio) return;
-    if(t.attivo === false && t.colore === 't3') return;   // turno 3 spento
+    if(t.attivo === false) return;   // turni opzionali spenti
     var d = Math.abs(hhmmMin(t.inizio) - min);
     if(d < bestD){ bestD = d; best = t; }
   });
@@ -636,6 +642,8 @@ function classificaTurno(v){
    ============================================================ */
 var vistaCorrente = 'dashboard';
 var subHaccp = 'allergeni';
+var qAllerg = '';        /* testo di ricerca prodotto */
+var allergSel = null;    /* prodotto selezionato per l'etichetta */
 var modCliente = null;   /* 'negozio' | 'ordina' | null */
 var carrello = [];       /* [{pid, variante, qta}] */
 
@@ -1502,20 +1510,60 @@ function corpoAllergeni(){
   if(!state.prodotti.length){
     return launcher + '<div class="card"><p class="muted">Crea prima i prodotti nella sezione Shop: qui assegni gli allergeni e stampi le etichette.</p></div>';
   }
-  return launcher + state.prodotti.map(function(p){
-    var checks = ALLERGENI.map(function(a,i){
-      var on = (p.allergeni||[]).indexOf(i) >= 0;
-      return '<label class="all-check' + (on?' on':'') + '">' +
-        '<input type="checkbox"' + (on?' checked':'') + ' onchange="toggleAllergene(\'' + p.id + '\',' + i + ')">' +
-        esc(a) + '</label>';
-    }).join('');
-    return '<div class="card"><h3>' + esc(p.nome) + '</h3>' +
-      '<label class="lbl">Ingredienti (per etichetta)</label>' +
-      '<textarea onchange="setIngredienti(\'' + p.id + '\', this.value)" placeholder="Farina di grano tenero, burro, uova, zucchero...">' + esc(p.ingredienti||'') + '</textarea>' +
-      '<div class="all-grid">' + checks + '</div>' +
-      '<button class="btn oro blocco" onclick="stampaEtichetta(\'' + p.id + '\')">🖨️ Stampa etichetta</button>' +
-      '</div>';
+  var q = String(qAllerg||'').trim().toLowerCase();
+  var ris = q.length >= 2
+    ? state.prodotti.filter(function(p){ return p.nome.toLowerCase().indexOf(q) >= 0; }).slice(0, 8)
+    : [];
+  var sel = state.prodotti.find(function(p){ return p.id === allergSel; });
+
+  var cerca = '<div class="card"><h3>🔎 Cerca prodotto</h3>' +
+    '<p class="muted" style="margin-bottom:8px">Scrivi almeno 2 lettere (es. "Tiram" → Tiramisù) e tocca il risultato: l\'etichetta appare qui sotto. Per aggiungere o modificare prodotti usa l\'app Etichette qui sopra.</p>' +
+    '<input type="text" id="inpAllerg" value="' + esc(qAllerg||'') + '" placeholder="Tiram…" oninput="filtraAllergeni(this.value)">' +
+    '<div id="allergRis" style="margin-top:8px">' + risultatiAllergHTML(ris, q) + '</div>' +
+    '</div>';
+
+  return launcher + cerca + (sel ? cardProdottoAllergeni(sel) : '');
+}
+
+function risultatiAllergHTML(ris, q){
+  if(String(q||'').trim().length < 2) return '<span class="muted">I prodotti restano nascosti finché non cerchi.</span>';
+  if(!ris.length) return '<span class="muted">Nessun prodotto trovato per "' + esc(q) + '".</span>';
+  return ris.map(function(p){
+    return '<button class="chip" style="cursor:pointer" onclick="selezionaAllergene(\'' + p.id + '\')">' + esc(p.nome) + '</button>';
+  }).join(' ');
+}
+
+/* Aggiorna SOLO i risultati, senza ridisegnare la pagina:
+   così il campo di ricerca non perde il focus mentre scrivi. */
+function filtraAllergeni(v){
+  qAllerg = v;
+  var q = String(v||'').trim().toLowerCase();
+  var ris = q.length >= 2
+    ? state.prodotti.filter(function(p){ return p.nome.toLowerCase().indexOf(q) >= 0; }).slice(0, 8)
+    : [];
+  var box = document.getElementById('allergRis');
+  if(box) box.innerHTML = risultatiAllergHTML(ris, q);
+}
+
+function selezionaAllergene(pid){
+  allergSel = pid;
+  render();
+}
+
+function cardProdottoAllergeni(p){
+  var checks = ALLERGENI.map(function(a,i){
+    var on = (p.allergeni||[]).indexOf(i) >= 0;
+    return '<label class="all-check' + (on?' on':'') + '">' +
+      '<input type="checkbox"' + (on?' checked':'') + ' onchange="toggleAllergene(\'' + p.id + '\',' + i + ')">' +
+      esc(a) + '</label>';
   }).join('');
+  return '<div class="card"><h3>' + esc(p.nome) +
+    ' <button class="btn mini sec fisso" style="margin-left:auto" onclick="allergSel=null;render()">✕ Chiudi</button></h3>' +
+    '<label class="lbl">Ingredienti (per etichetta)</label>' +
+    '<textarea onchange="setIngredienti(\'' + p.id + '\', this.value)" placeholder="Farina di grano tenero, burro, uova, zucchero...">' + esc(p.ingredienti||'') + '</textarea>' +
+    '<div class="all-grid">' + checks + '</div>' +
+    '<button class="btn oro blocco" onclick="stampaEtichetta(\'' + p.id + '\')">🖨️ Stampa etichetta</button>' +
+    '</div>';
 }
 
 function toggleAllergene(pid, i){
