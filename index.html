@@ -751,33 +751,12 @@ function renderDashboard(){
       }).join('')
     : '<p class="muted">Nessun ordine in arrivo dall\'app Ordini.</p>';
 
-  // ── Eventi locali (shop, fornitori, haccp) ──
-  var icone = { turno:'📅', ordine:'🧾', fornitore:'🚚', haccp:'🌡️', shop:'🛍️', sistema:'⚙️' };
-  var classi = { haccp:'err', fornitore:'oro', ordine:'ok' };
-  var feed = state.eventi.length
-    ? state.eventi.slice(0,8).map(function(ev){
-        return '<div class="evento">' +
-          '<div class="ico ' + (classi[ev.tipo]||'') + '">' + (icone[ev.tipo]||'•') + '</div>' +
-          '<div><div class="txt">' + esc(ev.testo) + '</div>' +
-          '<div class="ora">' + oraLoc(ev.ts) + '</div></div></div>';
-      }).join('')
-    : '<p class="muted">Ordini shop e liste fornitori compariranno qui.</p>';
-
-  // ── Ordini arrivati dal bot WhatsApp / shop online ──
-  var boxOnline = online.length
-    ? online.slice().sort(function(a,b){ return (b.creato||0) - (a.creato||0); }).slice(0,5).map(function(o){
-        var cosa = o.torta ? esc(o.torta) + (o.persone ? ' · ' + esc(o.persone) + ' pers.' : '')
-          : (o.articoli ? o.articoli.map(function(a){
-              return a.qta + '× ' + a.nome + (a.formato ? ' ' + a.formato : '') + (a.gusto ? ' (' + a.gusto + ')' : '');
-            }).join(', ') : '');
-        return '<div class="evento">' +
-          '<div class="ico oro">' + (o.tipo === 'shop' ? '🛍️' : '🤖') + '</div>' +
-          '<div><div class="txt">' + esc(o.nome || o.cliente || 'Cliente') +
-            (cosa ? ' — ' + esc(cosa) : '') + (o.totale ? ' · ' + euro(o.totale) : '') + '</div>' +
-          '<div class="ora">' + ((o.data || o.dataRitiro) ? dLocDaKey(o.data || o.dataRitiro) : 'senza data') +
-            (o.consegna && o.consegna.indirizzo ? ' · 🚚 ' + esc(o.consegna.indirizzo) : '') +
-            (o.telefono ? ' · 📞 ' + esc(o.telefono) : '') + '</div></div></div>';
-      }).join('')
+  // ── Ordini dallo Shop: SOLO tipo shop, con stato modificabile e contatto ──
+  var soloShop = online.filter(function(o){
+    return o.tipo === 'shop' || (o.articoli && o.articoli.length);
+  }).sort(function(a,b){ return (b.creato||0) - (a.creato||0); }).slice(0,8);
+  var boxOnline = soloShop.length
+    ? soloShop.map(cardOrdineShop).join('')
     : '<p class="muted">Nessun ordine dallo Shop. Le torte ordinate dal bot arrivano direttamente in Ordini.</p>';
 
   document.getElementById('v-dashboard').innerHTML =
@@ -791,8 +770,63 @@ function renderDashboard(){
     '</div>' +
     '<div class="card"><h3>📅 In turno oggi · ' + dLocDaKey(ok) + '</h3>' + boxTurni + '</div>' +
     '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
-    '<div class="card"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>' +
-    '<div class="card"><h3>🔔 Attività Suite (shop, fornitori, HACCP)</h3>' + feed + '</div>';
+    '<div class="card"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>';
+}
+
+/* ── Ordini Shop in dashboard: stato + contatto cliente ── */
+var STATI_SHOP = [
+  ['nuovo','Nuovo','#fef3c7','#92400e'],
+  ['confermato','Confermato','#ede9fe','#5b21b6'],
+  ['pronto','Pronto','#dbeafe','#1d4ed8'],
+  ['spedito','Spedito','#dbeafe','#1e3a8a'],
+  ['consegnato','Consegnato','#dcfce7','#166534'],
+  ['annullato','Annullato','#fee2e2','#991b1b']
+];
+function statoShopInfo(s){
+  for(var i=0;i<STATI_SHOP.length;i++) if(STATI_SHOP[i][0] === (s||'nuovo')) return STATI_SHOP[i];
+  return STATI_SHOP[0];
+}
+/* Telefono → formato wa.me: cifre, prefisso 39 se manca */
+function telWa(tel){
+  var d = String(tel||'').replace(/\D/g, '');
+  if(!d) return '';
+  if(d.slice(0,2) !== '39') d = '39' + d;
+  return d;
+}
+function cardOrdineShop(o){
+  var cosa = (o.articoli||[]).map(function(a){
+    return a.qta + '× ' + a.nome + (a.formato ? ' ' + a.formato : '') + (a.gusto ? ' (' + a.gusto + ')' : '');
+  }).join(', ');
+  var st = statoShopInfo(o.stato);
+  var wa = telWa(o.telefono);
+  var msg = encodeURIComponent('Ciao ' + (o.nome || '') + '! Ti scriviamo da ' + state.settings.nome +
+    ' per il tuo ordine' + (cosa ? ': ' + cosa : '') + (o.totale ? ' (tot. ' + euro(o.totale) + ')' : '') + '. ');
+  var sel = '<select onchange="setStatoShop(\'' + o.id + '\', this.value)" style="font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff">' +
+    STATI_SHOP.map(function(s){ return '<option value="' + s[0] + '"' + ((o.stato||'nuovo') === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') +
+    '</select>';
+  return '<div class="evento" style="align-items:flex-start">' +
+    '<div class="ico oro">🛍️</div>' +
+    '<div style="flex:1">' +
+      '<div class="txt">' + esc(o.nome || 'Cliente') + (o.totale ? ' · <b>' + euro(o.totale) + '</b>' : '') +
+        ' <span style="background:' + st[2] + ';color:' + st[3] + ';border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:800;margin-left:4px">' + st[1] + '</span></div>' +
+      (cosa ? '<div class="ora">' + esc(cosa) + '</div>' : '') +
+      '<div class="ora">' + (o.data ? '📅 ritiro/consegna ' + dLocDaKey(o.data) : 'senza data') +
+        (o.consegna && o.consegna.indirizzo
+          ? ' · 🚚 ' + esc(o.consegna.zona || '') + ' — ' + esc(o.consegna.indirizzo) + (o.consegna.cap ? ' (' + esc(o.consegna.cap) + ')' : '')
+          : ' · 🏪 ritiro in negozio') +
+        (o.pagamento ? ' · 💳 ' + esc(o.pagamento) : '') + '</div>' +
+      (o.note ? '<div class="ora">📝 ' + esc(o.note) + '</div>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">' + sel +
+        (wa ? '<a class="btn mini fisso" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + msg + '">💬 WhatsApp</a>' : '') +
+        (o.telefono ? '<a class="btn mini sec fisso" style="text-decoration:none" href="tel:' + esc(o.telefono) + '">📞 ' + esc(o.telefono) + '</a>' : '') +
+      '</div>' +
+    '</div></div>';
+}
+function setStatoShop(id, stato){
+  if(!db || !id){ toast('Firestore non disponibile'); return; }
+  db.collection('ordini_online').doc(id).set({ stato: stato }, { merge: true })
+    .then(function(){ toast('Ordine segnato: ' + stato); })
+    .catch(function(){ toast('Errore aggiornamento stato'); });
 }
 
 function legendaTurni(){
@@ -1195,6 +1229,8 @@ function renderShop(){
           '<span class="badge oro">' + ({negozio:'🛍️ Negozio',torta:'🎂 Torte su ordinazione',laboratorio:'🧪 Laboratorio (solo etichette)'}[p.cat]||p.cat) + '</span></div>' +
         '<div class="dett">' + euro(p.prezzo) + ' / ' + esc(p.um) + '</div>' +
       '</div></div>' +
+      '<label class="lbl">Foto (link immagine — es. da Google Drive)</label>' +
+      '<input type="text" class="sf-foto" data-pid="' + p.id + '" value="' + esc(p.foto||'') + '" placeholder="https://...">' +
       '<div style="margin-top:8px">' + (gusti || '<span class="muted">Nessuna variante</span>') + '</div>' +
       '<div class="riga" style="margin-top:8px">' +
         '<input type="text" id="var-' + p.id + '" placeholder="Nuovo gusto/variante">' +
@@ -2521,7 +2557,7 @@ function renderClienteTorta(){
 
   var selTorta = torte.length
     ? '<label class="lbl">Scegli la torta</label><select id="ctTorta" onchange="renderGustiTorta()">' + torteOpts + '</select>' +
-      '<div id="ctGusti"></div>'
+      '<div id="ctGusti"></div><div id="ctFoto"></div>'
     : '<label class="lbl">Descrivi la torta che desideri</label><textarea id="ctLibera" placeholder="Es. Sacher da 1kg con scritta Auguri"></textarea>';
 
   var domani = new Date(); domani.setDate(domani.getDate() + 2);
@@ -2555,6 +2591,10 @@ function renderGustiTorta(){
   box.innerHTML = gusti.length
     ? '<label class="lbl">Gusto</label><select id="ctGusto">' +
       gusti.map(function(v){ return '<option>' + esc(v.nome) + '</option>'; }).join('') + '</select>'
+    : '';
+  var fbox = document.getElementById('ctFoto');
+  if(fbox) fbox.innerHTML = (p && p.foto)
+    ? '<img src="' + esc(p.foto) + '" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin:6px 0 2px" onerror="this.style.display=\'none\'">'
     : '';
 }
 
