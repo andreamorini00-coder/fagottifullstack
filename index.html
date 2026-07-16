@@ -492,7 +492,7 @@ var TURNI_DEFAULT = [
   { nome:'Pomeriggio', emoji:'🔴', inizio:'14:00', fine:'21:00', colore:'pom' },
   { nome:'Turno 3',    emoji:'🔵', inizio:'',      fine:'',      colore:'t3', attivo:false }
 ];
-var LIVE = { ordini:[], ordiniOnline:[], turni:{}, turniConf:TURNI_DEFAULT, catalogo:{}, prontoFB:false, errore:false };
+var LIVE = { ordini:[], ordiniOnline:[], turni:{}, turniConf:TURNI_DEFAULT, dipendenti:[], catalogo:{}, prontoFB:false, errore:false };
 var db = null;
 
 (function initFirebase(){
@@ -524,6 +524,7 @@ function ascoltaFirestore(){
     LIVE.turni = d.turni || {};
     // Stessa configurazione dell'app Turni: 🟢 Mattina · 🔴 Pomeriggio · 🔵 Turno 3
     if(d.impostazioni && d.impostazioni.turni && d.impostazioni.turni.length) LIVE.turniConf = d.impostazioni.turni;
+    if(d.impostazioni && d.impostazioni.dipendenti) LIVE.dipendenti = d.impostazioni.dipendenti;
     if(vistaCorrente === 'dashboard' && !modCliente) renderDashboard();
   }, function(){});
 
@@ -600,6 +601,23 @@ function turniDelGiorno(dataKey){
     out.push({ nome:parti[0], testo:testo, lavora:lavora, colore:cls.colore,
       emoji:cls.emoji, etichetta:cls.nome, min:(lavora ? hhmmMin(v.inizio) : 9999) });
   });
+  // Stato CCNL dalla scheda dipendente: maternità visibile anche senza turni segnati
+  (LIVE.dipendenti||[]).forEach(function(d){
+    if(!d || !d.statoCcnl) return;
+    if(d.statoCcnl !== 'MT' && d.statoCcnl !== 'MA') return;
+    if(out.some(function(o){ return o.nome === d.nome; })) return;
+    var eti = d.statoCcnl === 'MA' ? 'Maternità anticipata' : 'Maternità';
+    out.push({ nome:d.nome, testo:eti, lavora:false, colore:'ferie', emoji:'🤱', etichetta:eti, min:9999 });
+  });
+  // Chi è in allattamento e lavora oggi: nota sotto il nome
+  out.forEach(function(o){
+    var d = (LIVE.dipendenti||[]).find(function(x){ return x.nome === o.nome; });
+    if(d && d.statoCcnl === 'AL' && o.lavora){
+      o.etichetta = '🍼 Allattamento · max ' + (d.maxOreGiorno || 6) + 'h/g';
+      o.emoji = o.emoji || '🍼';
+    }
+  });
+
   // Ordine cronologico: prima chi entra presto, in fondo ferie/malattia/permessi
   out.sort(function(a,b){
     if(a.min !== b.min) return a.min - b.min;
