@@ -322,15 +322,7 @@ var ALLERGENI = [
   'Frutta a guscio','Sedano','Senape','Sesamo','Solfiti','Lupini','Molluschi'
 ];
 
-var TURNI_CODICI = {
-  '':  '— nessuno',
-  'M': 'M · Mattina',
-  'P': 'P · Pomeriggio',
-  'S': 'S · Sera',
-  'SP':'SP · Spezzato',
-  'R': 'R · Riposo',
-  'F': 'F · Ferie'
-};
+
 
 var PUNTI_TEMP = ['Frigo 1','Frigo 2','Congelatore','Abbattitore','Vetrina refrigerata','Laboratorio'];
 
@@ -578,51 +570,19 @@ function listinoDaSeed(){
 /* Normalizza le chiavi turno 'Nome|YYYY-M-D' (mese/giorno non zero-padded)
    e restituisce chi lavora in una certa data locale. */
 function turniDelGiorno(dataKey){
-  var p = dataKey.split('-');
-  var nonPad = p[0] + '-' + Number(p[1]) + '-' + Number(p[2]); // 2026-7-14
-  var out = [];
+  /* Solo i dipendenti con un orario: niente ferie, malattie, permessi o congedi
+     (quelli vivono nell'app Turni). Colore a soglia: prima delle 13 = mattina. */
+  var p = dataKey.split('-'), nonPad = p[0] + '-' + Number(p[1]) + '-' + Number(p[2]), out = [];
   Object.keys(LIVE.turni).forEach(function(k){
-    var parti = k.split('|');
-    if(parti.length < 2) return;
-    var d = parti[1].trim().split('-');
-    if(d.length !== 3) return;
-    var normDato = d[0] + '-' + Number(d[1]) + '-' + Number(d[2]);
-    if(normDato !== nonPad) return;
+    var parti = k.split('|'); if(parti.length < 2) return;
+    var d = parti[1].trim().split('-'); if(d.length !== 3) return;
+    if(d[0] + '-' + Number(d[1]) + '-' + Number(d[2]) !== nonPad) return;
     var v = LIVE.turni[k];
-    var testo;
-    if(v && v.tipo === 'F') testo = 'Ferie';
-    else if(v && v.tipo === 'M') testo = 'Malattia';
-    else if(v && v.tipo === 'PE') testo = 'Permesso' + (v.ore ? ' ' + v.ore + 'h' : '');
-    else if(v && v.tipo === 'MT') testo = 'Maternità';
-    else if(v && v.inizio) testo = v.inizio + '–' + v.fine;
-    else testo = '—';
-    var lavora = !!(v && v.inizio);
-    var cls = classificaTurno(v);
-    out.push({ nome:parti[0], testo:testo, lavora:lavora, colore:cls.colore,
-      emoji:cls.emoji, etichetta:cls.nome, min:(lavora ? hhmmMin(v.inizio) : 9999) });
+    if(!v || !v.inizio) return;
+    var min = hhmmMin(v.inizio);
+    out.push({ nome:parti[0], testo:v.inizio + '–' + v.fine, colore:(min < 780 ? 'mat' : 'pom'), min:min });
   });
-  // Stato CCNL dalla scheda dipendente: maternità visibile anche senza turni segnati
-  (LIVE.dipendenti||[]).forEach(function(d){
-    if(!d || !d.statoCcnl) return;
-    if(d.statoCcnl !== 'MT' && d.statoCcnl !== 'MA') return;
-    if(out.some(function(o){ return o.nome === d.nome; })) return;
-    var eti = d.statoCcnl === 'MA' ? 'Maternità anticipata' : 'Maternità';
-    out.push({ nome:d.nome, testo:eti, lavora:false, colore:'ferie', emoji:'🤱', etichetta:eti, min:9999 });
-  });
-  // Chi è in allattamento e lavora oggi: nota sotto il nome
-  out.forEach(function(o){
-    var d = (LIVE.dipendenti||[]).find(function(x){ return x.nome === o.nome; });
-    if(d && d.statoCcnl === 'AL' && o.lavora){
-      o.etichetta = '🍼 Allattamento · max ' + (d.maxOreGiorno || 6) + 'h/g';
-      o.emoji = o.emoji || '🍼';
-    }
-  });
-
-  // Ordine cronologico: prima chi entra presto, in fondo ferie/malattia/permessi
-  out.sort(function(a,b){
-    if(a.min !== b.min) return a.min - b.min;
-    return a.nome.localeCompare(b.nome);
-  });
+  out.sort(function(a,b){ return a.min !== b.min ? a.min - b.min : a.nome.localeCompare(b.nome); });
   return out;
 }
 
@@ -631,28 +591,7 @@ function hhmmMin(s){
   return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : 9999;
 }
 
-/* Assegna il turno confrontando l'ora di inizio con i turni configurati
-   nell'app Turni: vince quello con l'inizio più vicino. */
-function classificaTurno(v){
-  if(!v || !v.inizio){
-    if(v && v.tipo === 'F') return { colore:'ferie', emoji:'🏖️', nome:'Ferie' };
-    if(v && v.tipo === 'M') return { colore:'ferie', emoji:'🤒', nome:'Malattia' };
-    if(v && v.tipo === 'PE') return { colore:'ferie', emoji:'📄', nome:'Permesso' };
-    if(v && v.tipo === 'MT') return { colore:'ferie', emoji:'🤱', nome:'Maternità' };
-    return { colore:'ferie', emoji:'', nome:'' };
-  }
-  var min = hhmmMin(v.inizio);
-  var best = null, bestD = 99999;
-  (LIVE.turniConf || TURNI_DEFAULT).forEach(function(t){
-    if(!t || !t.inizio) return;
-    if(t.attivo === false) return;   // turni opzionali spenti
-    var d = Math.abs(hhmmMin(t.inizio) - min);
-    if(d < bestD){ bestD = d; best = t; }
-  });
-  if(!best) return { colore:'mat', emoji:'🟢', nome:'Mattina' };
-  return { colore:best.colore || 'mat', emoji:best.emoji || '🟢',
-    nome:best.nome || (best.colore === 'pom' ? 'Pomeriggio' : best.colore === 't3' ? 'Turno 3' : 'Mattina') };
-}
+
 </script>
 <script>
 /* ============================================================
@@ -705,7 +644,7 @@ function renderDashboard(){
 
   // ── TURNI live da Firestore (app turni-ferie) ──
   var inTurno = turniDelGiorno(ok);
-  var alLavoro = inTurno.filter(function(t){ return t.lavora; }).length;
+  var alLavoro = inTurno.length;
 
   // ── ORDINI live da Firestore (app Fagotti-ordini) uniti a quelli locali (shop/manuali) ──
   var ordiniFB = LIVE.ordini.map(function(o){
@@ -731,9 +670,7 @@ function renderDashboard(){
     ? inTurno.map(function(t){
         return '<div class="turno-riga">' +
           '<div class="fascia ' + t.colore + '"></div>' +
-          '<div class="dip">' + esc(t.nome) +
-            (t.etichetta ? '<div class="dett">' + t.emoji + ' ' + esc(t.etichetta) + '</div>' : '') +
-          '</div>' +
+          '<div class="dip">' + esc(t.nome) + '</div>' +
           '<span class="badge ' + t.colore + ' fisso">' + esc(t.testo) + '</span></div>';
       }).join('') + legendaTurni()
     : '<p class="muted">Nessun turno assegnato per oggi (' + dLocDaKey(ok) + ') nell\'app Turni.</p>';
@@ -830,84 +767,53 @@ function setStatoShop(id, stato){
 }
 
 function legendaTurni(){
-  var voci = (LIVE.turniConf || TURNI_DEFAULT).filter(function(t){
-    return t && t.inizio && !(t.attivo === false && t.colore === 't3');
-  }).map(function(t){
-    return '<span class="badge ' + (t.colore||'mat') + '">' + (t.emoji||'') + ' ' +
-      esc(t.nome || '') + ' ' + esc(t.inizio) + '–' + esc(t.fine) + '</span>';
-  }).join(' ');
-  return voci ? '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + voci + '</div>' : '';
+  return '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' +
+    '<span class="badge mat">fino alle 13</span>' +
+    '<span class="badge pom">dalle 13</span></div>';
 }
 
 /* ============================================================
    TURNI
    ============================================================ */
-var dataTurni = oggiKey();
+
+var settTurniOff = 0;   /* 0 = settimana corrente */
 
 function renderTurni(){
-  var giorno = state.turni[dataTurni] || {};
-  var opts = Object.keys(TURNI_CODICI).map(function(c){
-    return '<option value="' + c + '">' + TURNI_CODICI[c] + '</option>';
-  }).join('');
-
-  var righe = state.dipendenti.length
-    ? state.dipendenti.map(function(d){
-        var sel = giorno[d.id] || '';
-        return '<div class="turno-riga">' +
-          '<div class="dip">' + esc(d.nome) + '</div>' +
-          '<select onchange="setTurno(\'' + d.id + '\', this.value)" data-val="' + esc(sel) + '">' + opts + '</select>' +
-          '<button class="btn mini rosso fisso" onclick="rimuoviDip(\'' + d.id + '\')">✕</button>' +
-          '</div>';
-      }).join('')
-    : '<p class="muted">Aggiungi i dipendenti qui sotto per assegnare i turni.</p>';
-
-  var legenda = ['M · Mattina','P · Pomeriggio','S · Sera','SP · Spezzato','R · Riposo','F · Ferie']
-    .map(function(l){ return '<span class="badge grigio">' + l + '</span>'; }).join('');
+  var oggi = new Date(); oggi.setHours(12,0,0,0);
+  var lun = new Date(oggi);
+  lun.setDate(oggi.getDate() - ((oggi.getDay() + 6) % 7) + settTurniOff * 7);
+  var giorniLbl = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  var okOggi = oggiKey();
+  var righe = '';
+  for(var i = 0; i < 7; i++){
+    var d = new Date(lun); d.setDate(lun.getDate() + i);
+    var k = dKey(d);
+    var lav = turniDelGiorno(k);
+    var chips = lav.length
+      ? lav.map(function(t){ return '<span class="badge ' + t.colore + '">' + esc(t.nome) + ' ' + esc(t.testo) + '</span>'; }).join(' ')
+      : '<span class="muted">—</span>';
+    righe += '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line)">' +
+      '<div style="flex:0 0 60px;font-weight:800;font-family:\'DM Mono\',monospace;font-size:12px;' + (k === okOggi ? 'color:var(--oro)' : '') + '">' +
+        giorniLbl[i] + ' ' + d.getDate() + (k === okOggi ? ' •' : '') + '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' + chips + '</div></div>';
+  }
+  var titolo = settTurniOff === 0 ? 'Questa settimana'
+    : 'Settimana ' + (settTurniOff > 0 ? '+' + settTurniOff : settTurniOff);
 
   document.getElementById('v-turni').innerHTML =
-    '<div class="card"><h3>↗ Turni & Ferie</h3>' +
-      '<p class="muted">Griglia del mese, ferie e stampa PDF nell\'app completa — si apre già loggata con la password della Suite.</p>' +
+    '<div class="card"><h3>↗ Turni &amp; Ferie</h3>' +
+      '<p class="muted">Griglia del mese, ferie, congedi e stampa PDF nell\'app completa — si apre già loggata con la password della Suite.</p>' +
       '<button class="btn oro blocco" onclick="apriApp(state.settings.urlTurni, true)">↗ Apri Turni &amp; Ferie completa</button>' +
     '</div>' +
-    '<div class="card"><h3>📅 Agenda rapida del giorno (locale)</h3>' +
-      '<label class="lbl">Data</label>' +
-      '<input type="date" value="' + dataTurni + '" onchange="dataTurni=this.value;render()">' +
-      '<div style="margin-top:12px">' + righe + '</div>' +
-      '<div class="legenda">' + legenda + '</div>' +
-    '</div>' +
-    '<div class="card"><h3>👤 Nuovo dipendente</h3>' +
-      '<div class="riga"><input type="text" id="nuovoDip" placeholder="Nome dipendente">' +
-      '<button class="btn fisso" onclick="aggiungiDip()">Aggiungi</button></div>' +
+    '<div class="card"><h3>📅 ' + titolo +
+      '<span style="margin-left:auto;display:inline-flex;gap:6px">' +
+        '<button class="btn mini sec fisso" onclick="settTurniOff--;render()">‹</button>' +
+        '<button class="btn mini sec fisso" onclick="settTurniOff=0;render()">Oggi</button>' +
+        '<button class="btn mini sec fisso" onclick="settTurniOff++;render()">›</button>' +
+      '</span></h3>' +
+      '<p class="muted" style="margin-bottom:6px">Sola lettura dai dati veri dell\'app Turni. Assenze e congedi si vedono nell\'app completa.</p>' +
+      righe + legendaTurni() +
     '</div>';
-
-  /* imposta i valori selezionati (dopo l'inserimento HTML) */
-  document.querySelectorAll('#v-turni .turno-riga select').forEach(function(s){
-    s.value = s.dataset.val;
-  });
-}
-
-function aggiungiDip(){
-  var inp = document.getElementById('nuovoDip');
-  var nome = inp.value.trim();
-  if(!nome){ toast('Inserisci il nome'); return; }
-  state.dipendenti.push({ id:uid(), nome:nome });
-  salva(); render(); toast('Dipendente aggiunto');
-}
-
-function rimuoviDip(id){
-  if(!confirm('Rimuovere il dipendente?')) return;
-  state.dipendenti = state.dipendenti.filter(function(d){ return d.id !== id; });
-  salva(); render();
-}
-
-function setTurno(depId, codice){
-  if(!state.turni[dataTurni]) state.turni[dataTurni] = {};
-  state.turni[dataTurni][depId] = codice;
-  salva();
-  var dip = state.dipendenti.find(function(d){ return d.id === depId; });
-  var nomeT = TURNI_CODICI[codice] || codice;
-  evento('turno', 'Turno aggiornato: ' + (dip ? dip.nome : '?') + ' → ' + nomeT + ' (' + dLocDaKey(dataTurni) + ')');
-  toast('Turno salvato');
 }
 
 /* ============================================================
