@@ -651,12 +651,17 @@ function renderDashboard(){
     return { fonte:'firebase', cliente:o.cliente, data:o.data, orario:o.orario,
              prodotto:o.prodotto || (o.salProdotto || ''), consegna:o.consegna };
   });
-  var ordiniLocali = state.ordini.filter(function(o){ return o.stato !== 'ritirato'; });
   var online = LIVE.ordiniOnline || [];
-  var totOrdiniAperti = ordiniFB.length + ordiniLocali.length + online.length;
+  /* Aperti = solo dati veri: ordini Firestore da oggi in poi + ordini Shop
+     non ancora chiusi. Niente localStorage, niente passato, niente annullati. */
+  var shopAttivi = online.filter(function(o){
+    var s = o.stato || 'nuovo';
+    return (o.tipo === 'shop' || (o.articoli && o.articoli.length)) &&
+           s !== 'consegnato' && s !== 'annullato';
+  });
+  var totOrdiniAperti = ordiniFB.filter(function(o){ return !o.data || o.data >= ok; }).length + shopAttivi.length;
   var oggiOrdini = ordiniFB.filter(function(o){ return o.data === ok; }).length +
-                   ordiniLocali.filter(function(o){ return o.ritiro === ok; }).length +
-                   online.filter(function(o){ return (o.data || o.dataRitiro) === ok; }).length;
+                   shopAttivi.filter(function(o){ return (o.data || o.dataRitiro) === ok; }).length;
 
   var listeAperte = state.fornitori.filter(function(f){ return f.lista && f.lista.length; }).length;
 
