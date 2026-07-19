@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Font della vetrina cliente (brand Fagotti reale, da fagottipasticceria.it) -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@500;600;700&family=Cabin:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
@@ -184,38 +186,55 @@ label.lbl{display:block;font-size:11.5px;color:var(--grigio);margin:8px 0 4px;fo
 .all-check input{width:auto}
 .all-check.on{border-color:var(--viola);background:var(--viola-soft)}
 
-/* ---------- Vista cliente ---------- */
-body.cliente{padding-bottom:110px}
+/* ---------- Vista cliente (brand Fagotti: Cormorant + Cabin, da Figma "Vetrina Shop") ---------- */
+body.cliente{
+  padding-bottom:126px;background:#f9f9f9;
+  font-family:'Cabin',sans-serif;
+}
+body.cliente input,body.cliente select,body.cliente textarea,body.cliente button{font-family:'Cabin',sans-serif;font-size:14px}
+
 .cliente-hero{
-  background:var(--ink);color:#fff;padding:26px 18px;text-align:center;
+  background:var(--ink);color:#fff;padding:30px 22px 26px;text-align:center;
 }
-.cliente-hero h1{font-size:24px;font-weight:800}
+.cliente-hero h1{font-family:'Cormorant',serif;font-size:32px;font-weight:600;letter-spacing:.3px}
 .cliente-hero h1 span{color:var(--oro)}
-.cliente-hero p{color:#9ca3af;font-size:13px;margin-top:4px;font-family:'DM Mono',monospace}
+.cliente-hero p{color:#c7c9ce;font-size:12.5px;margin-top:4px;font-family:'Cabin',sans-serif;letter-spacing:.2px}
+
 .prodotto-card{
-  background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;
+  background:#fff;border:1px solid #e8e8eb;border-radius:16px;overflow:hidden;margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
 }
-.prodotto-card .pnome{font-weight:800;font-size:16.5px}
-.prodotto-card .pprezzo{font-family:'DM Mono',monospace;color:var(--viola);font-weight:500;font-size:15px}
+.prodotto-card .pcard-foto{position:relative}
+.prodotto-card .pcard-foto img{width:100%;height:190px;object-fit:cover;display:block}
+.prodotto-card .pcard-foto .badges-foto{position:absolute;top:12px;left:12px;display:flex;gap:6px;flex-wrap:wrap}
+.prodotto-card .pcard-body{padding:14px 16px 16px}
+.prodotto-card .pnome{font-family:'Cormorant',serif;font-weight:600;font-size:20px;color:var(--ink)}
+.prodotto-card .pprezzo{font-family:'Cabin',sans-serif;color:var(--viola);font-weight:600;font-size:16px}
+
 .gusti{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .gusto{
   border:1.5px solid var(--line);border-radius:999px;padding:6px 13px;font-size:12.5px;
-  cursor:pointer;background:#fff;font-family:'DM Mono',monospace;
+  cursor:pointer;background:#fff;font-family:'Cabin',sans-serif;
 }
-.gusto.sel{border-color:var(--viola);background:var(--viola-soft);color:var(--viola);font-weight:500}
+.gusto.sel{border-color:var(--viola);background:var(--viola-soft);color:var(--viola);font-weight:600}
 .qta-box{display:flex;align-items:center;gap:10px}
 .qta-box button{
   width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;
   font-size:17px;cursor:pointer;
 }
-.qta-box .q{font-family:'DM Mono',monospace;font-weight:500;min-width:22px;text-align:center}
+.qta-box .q{font-family:'Cabin',sans-serif;font-weight:600;min-width:22px;text-align:center}
+
 .carrello-bar{
-  position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;
-  padding:13px 16px;display:flex;justify-content:space-between;align-items:center;z-index:60;
+  position:fixed;left:24px;right:24px;bottom:16px;background:var(--ink);color:#fff;
+  border-radius:18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;
+  z-index:60;box-shadow:0 10px 28px rgba(0,0,0,.22);
 }
-.carrello-bar .tot{font-family:'DM Mono',monospace;font-size:15px}
+.carrello-bar .tot{font-family:'Cabin',sans-serif;font-size:15px;line-height:1.25}
+.carrello-bar .tot small{display:block;color:#b8bac0;font-size:10.5px;font-weight:400}
+.carrello-bar .btn.oro{border-radius:12px;font-weight:600}
+
 footer.firma{
-  text-align:center;padding:20px;font-family:'DM Mono',monospace;font-size:10.5px;color:#9ca3af;
+  text-align:center;padding:22px 20px 8px;font-family:'Cabin',sans-serif;font-size:10.5px;color:#9ca3af;
 }
 
 /* ---------- Login ---------- */
@@ -330,6 +349,14 @@ var VOCI_SANIF = ['Piani di lavoro','Attrezzature e utensili','Impastatrice / pl
 
 var STATI_ORDINE = ['nuovo','confermato','in preparazione','pronto','ritirato'];
 
+/* Messaggi WhatsApp dello Shop — modificabili in Impostazioni.
+   Segnaposto: {nome} {negozio} {ordine} {totale} {consegna} {tracking} {tempi} {data} */
+var TPL_SHOP_DEFAULT = {
+  conferma: 'Ciao {nome}! ✅ Confermiamo il tuo ordine da {negozio}: {ordine} — totale {totale}. {consegna}Grazie! 🎂',
+  pronto:   'Ciao {nome}! 🛍️ Il tuo ordine da {negozio} è pronto per il ritiro: {ordine}. Ti aspettiamo in pasticceria!',
+  spedito:  'Ciao {nome}! 📦 Il tuo ordine da {negozio} è stato spedito: {ordine}.{tracking} Consegna prevista in {tempi}.'
+};
+
 /* ---- Dati Fagotti importati da fagotti-allergeni + WaFagotti + ordini ---- */
 var SEED_PRODOTTI = [{"id": "sd0001", "nome": "Tiramisù classico", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Mascarpone, uova fresche, zucchero semolato, savoiardi (farina di frumento, uova, zucchero), caffè espresso, cacao amaro", "attivo": true}, {"id": "sd0002", "nome": "Millefoglie fragole", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, acqua, sale, latte, uova, zucchero, vaniglia, panna fresca, fragole fresche", "attivo": true}, {"id": "sd0003", "nome": "Sacher", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, cioccolato fondente 70%, burro, uova, zucchero, cacao amaro, marmellata di albicocche, panna fresca", "attivo": true}, {"id": "sd0004", "nome": "Cheesecake", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Biscotti secchi (farina di frumento, zucchero, burro), burro, ricotta, panna fresca, uova, zucchero, succo di limone, vaniglia, gelatina", "attivo": true}, {"id": "sd0005", "nome": "Red Velvet", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, latte, zucchero, cacao, bicarbonato, aceto, formaggio spalmabile, panna fresca, zucchero a velo", "attivo": true}, {"id": "sd0006", "nome": "Charlotte limone", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd0007", "nome": "Tre cioccolati", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Cioccolato fondente 70%, cioccolato al latte, cioccolato bianco, panna fresca, burro, uova, zucchero, farina di frumento, gelatina", "attivo": true}, {"id": "sd0008", "nome": "Profitterole", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd0009", "nome": "Montblanc", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Castagne, panna fresca, zucchero, vaniglia, albume d'uovo, farina di frumento, burro, uova", "attivo": true}, {"id": "sd000a", "nome": "Meringata frutti bosco", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000b", "nome": "Pavlova", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [2, 6, 11], "ingredienti": "Albume d'uovo, zucchero semolato, amido di mais, aceto di vino bianco, panna fresca 35%, frutta fresca di stagione", "attivo": true}, {"id": "sd000c", "nome": "Saint Honorè", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000d", "nome": "Lemon tart", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, zucchero, succo di limone, scorza di limone, panna fresca, albume d'uovo", "attivo": true}, {"id": "sd000e", "nome": "Black Forest", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000f", "nome": "Cream tart", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000g", "nome": "Afrodite", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000h", "nome": "Diplomatica", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000i", "nome": "Dolce castagne", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000j", "nome": "Kinder", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000k", "nome": "Mandarinoir", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000l", "nome": "Marika", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000m", "nome": "Millefoglie classico", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, acqua, sale, latte, uova, zucchero, vaniglia, panna fresca", "attivo": true}, {"id": "sd000n", "nome": "Mimosa", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000o", "nome": "Moretta", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000p", "nome": "Ohana", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000q", "nome": "Pastiera", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000r", "nome": "Serendipity", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000s", "nome": "Settembrina", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000t", "nome": "Sveva", "prezzo": 35, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000u", "nome": "Tiramisù fragole", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Mascarpone, uova fresche, zucchero semolato, savoiardi (farina di frumento, uova, zucchero), fragole fresche, succo di limone, cacao amaro", "attivo": true}, {"id": "sd000v", "nome": "Ugly cake", "prezzo": 30, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000w", "nome": "Zuccotto", "prezzo": 27, "um": "pz", "cat": "torta", "varianti": [], "allergeni": [], "ingredienti": "", "attivo": true}, {"id": "sd000x", "nome": "Panettone artigianale", "prezzo": 28, "um": "pz", "cat": "negozio", "varianti": [{"nome": "750g Classico", "disp": true}, {"nome": "750g Cioccolato", "disp": true}, {"nome": "1kg Classico", "disp": true}, {"nome": "1kg Cioccolato", "disp": true}], "allergeni": [0, 2, 5, 6, 7, 11], "ingredienti": "Farina di frumento, burro, uova fresche, zucchero, uvetta, canditi, lievito madre, latte, mandorle, marsala, lecitina di soia", "attivo": true}, {"id": "sd000y", "nome": "Scatola pasticcini misti", "prezzo": 18, "um": "pz", "cat": "negozio", "varianti": [{"nome": "12 pz", "disp": true}, {"nome": "24 pz", "disp": true}], "allergeni": [0, 2, 6, 7], "ingredienti": "Farina di frumento, burro, uova, latte, zucchero, panna, mandorle, nocciole, cioccolato", "attivo": true}, {"id": "sd000z", "nome": "Frollini artigianali", "prezzo": 6.5, "um": "pz", "cat": "negozio", "varianti": [{"nome": "Burro", "disp": true}, {"nome": "Cacao", "disp": true}], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova, zucchero a velo, sale, vaniglia, lievito chimico", "attivo": true}, {"id": "sd0010", "nome": "Cornetto vuoto", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia", "attivo": true}, {"id": "sd0011", "nome": "Cornetto alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, crema pasticciera (latte, uova, zucchero, farina, vaniglia)", "attivo": true}, {"id": "sd0012", "nome": "Cornetto al cioccolato", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, crema al cioccolato (cacao, latte, zucchero, burro)", "attivo": true}, {"id": "sd0013", "nome": "Cornetto alla marmellata", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 5, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia naturale, lecitina di soia, marmellata di albicocche", "attivo": true}, {"id": "sd0014", "nome": "Maritozzo con panna", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, vaniglia, panna fresca 35%, zucchero a velo", "attivo": true}, {"id": "sd0015", "nome": "Bomba alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, olio di semi, crema pasticciera (latte, uova, zucchero, farina, vaniglia), zucchero a velo", "attivo": true}, {"id": "sd0016", "nome": "Ciambella fritta", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero semolato, lievito di birra, sale, olio di semi di girasole", "attivo": true}, {"id": "sd0017", "nome": "Bottoncini salati", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6, 10], "ingredienti": "Farina di frumento, burro, uova, sale, lievito chimico, formaggio, semi di sesamo", "attivo": true}, {"id": "sd0018", "nome": "Bignè alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, acqua, sale, latte, zucchero, vaniglia", "attivo": true}, {"id": "sd0019", "nome": "Tartelletta alla frutta", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, zucchero, sale, crema pasticciera (latte, uova, zucchero, farina, vaniglia), frutta fresca di stagione, gelatina", "attivo": true}, {"id": "sd001a", "nome": "Cannoncino alla crema", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento, burro, uova, sale, acqua, panna fresca, zucchero, vaniglia", "attivo": true}, {"id": "sd001b", "nome": "Caprese", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [2, 6, 7], "ingredienti": "Mandorle, cioccolato fondente, burro, uova, zucchero, lievito", "attivo": true}, {"id": "sd001c", "nome": "Torta Gelato", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Pan di spagna (farina di frumento, uova, zucchero), gelato artigianale (latte, panna, zucchero, uova), panna fresca, biscotti", "attivo": true}, {"id": "sd001d", "nome": "Pan di Spagna", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2], "ingredienti": "Uova fresche, zucchero semolato, farina di frumento tipo 00, fecola di patate, vaniglia naturale", "attivo": true}, {"id": "sd001e", "nome": "Pasta frolla", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova, zucchero a velo, sale, vaniglia, lievito chimico", "attivo": true}, {"id": "sd001f", "nome": "Pasta sfoglia", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 6], "ingredienti": "Farina di frumento tipo 00, burro, acqua, sale", "attivo": true}, {"id": "sd001g", "nome": "Crema pasticciera", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Latte intero, uova fresche, zucchero semolato, farina di frumento, vaniglia naturale", "attivo": true}, {"id": "sd001h", "nome": "Crema al burro", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [2, 6], "ingredienti": "Burro, zucchero a velo, uova, vaniglia, latte", "attivo": true}, {"id": "sd001i", "nome": "Impasto bombe/krapfen", "prezzo": 0, "um": "pz", "cat": "laboratorio", "varianti": [], "allergeni": [0, 2, 6], "ingredienti": "Farina di frumento tipo 00, burro, uova fresche, latte intero, zucchero, lievito di birra, sale", "attivo": true}];
 var SEED_FORNITORI = [{"id": "sd001j", "nome": "Doreca", "tel": "", "lista": [], "storico": [], "catalogo": ["Coca-Cola 33cl (cartone)"]}, {"id": "sd001k", "nome": "Illy", "tel": "", "lista": [], "storico": [], "catalogo": ["Caffè decaffeinato (kg)"]}, {"id": "sd001l", "nome": "Molino Rossi", "tel": "", "lista": [], "storico": [], "catalogo": ["Farina 00 (sacco 25kg)"]}, {"id": "sd001m", "nome": "Latteria Val d'Oro", "tel": "", "lista": [], "storico": [], "catalogo": ["Burro (panetto 1kg)", "Uova fresche (plateau 30)"]}];
@@ -363,7 +390,7 @@ function statoDefault(){
     ordini:[],
     prodotti: seedProdotti(),
     fornitori: seedFornitori(),
-    shopSped:{ attiva:false, roma:5, fuori:9 },
+    shopSped:{ attiva:false, roma:5, fuori:9, tempi:'3–5 giorni lavorativi dalla presa in carico' },
     botCat:{ caricato:false, waNumber:'', pageUrl:'', shopUrl:'', consegnaVicino:10, consegnaLontano:15,
       kgPersona:0.15, stimaMin:85, stimaMax:115, listino:[], farciture:[], decorazioni:[], orari:[] },
     bot:{ templates:[
@@ -401,6 +428,8 @@ function carica(){
       if(s.botCat.consegnaLontano === undefined) s.botCat.consegnaLontano = 15;
       delete s.botCat.costoConsegna;
     }
+    if(s.settings && !s.settings.tplShop) s.settings.tplShop = JSON.parse(JSON.stringify(TPL_SHOP_DEFAULT));
+    if(s.shopSped && s.shopSped.tempi === undefined) s.shopSped.tempi = '3–5 giorni lavorativi dalla presa in carico';
     if(s.shopSped && s.shopSped.fasce){
       s.shopSped = { attiva:!!s.shopSped.attiva,
         roma:(s.shopSped.fasce[0] ? s.shopSped.fasce[0].costo : 5),
@@ -659,9 +688,10 @@ function renderDashboard(){
     return (o.tipo === 'shop' || (o.articoli && o.articoli.length)) &&
            s !== 'consegnato' && s !== 'annullato';
   });
-  var totOrdiniAperti = ordiniFB.filter(function(o){ return !o.data || o.data >= ok; }).length + shopAttivi.length;
-  var oggiOrdini = ordiniFB.filter(function(o){ return o.data === ok; }).length +
-                   shopAttivi.filter(function(o){ return (o.data || o.dataRitiro) === ok; }).length;
+  /* Torte e Shop separati: le prime due caselle parlano con l'app Ordini,
+     la casella Shop scorre al suo box qui sotto. */
+  var totOrdiniAperti = ordiniFB.filter(function(o){ return !o.data || o.data >= ok; }).length;
+  var oggiOrdini = ordiniFB.filter(function(o){ return o.data === ok; }).length;
 
   var listeAperte = state.fornitori.filter(function(f){ return f.lista && f.lista.length; }).length;
 
@@ -694,9 +724,8 @@ function renderDashboard(){
     : '<p class="muted">Nessun ordine in arrivo dall\'app Ordini.</p>';
 
   // ── Ordini dallo Shop: SOLO tipo shop, con stato modificabile e contatto ──
-  var soloShop = online.filter(function(o){
-    return o.tipo === 'shop' || (o.articoli && o.articoli.length);
-  }).sort(function(a,b){ return (b.creato||0) - (a.creato||0); }).slice(0,8);
+  var soloShop = shopAttivi.slice()
+    .sort(function(a,b){ return (b.creato||0) - (a.creato||0); }).slice(0,8);
   var boxOnline = soloShop.length
     ? soloShop.map(cardOrdineShop).join('')
     : '<p class="muted">Nessun ordine dallo Shop. Le torte ordinate dal bot arrivano direttamente in Ordini.</p>';
@@ -707,12 +736,13 @@ function renderDashboard(){
     '<div class="kpi-grid">' +
       '<div class="kpi" onclick="apriApp(state.settings.urlOrdini, true)"><div class="num viola">' + totOrdiniAperti + '</div><div class="lab">Ordini aperti</div></div>' +
       '<div class="kpi" onclick="apriApp(state.settings.urlOrdini, true)"><div class="num">' + oggiOrdini + '</div><div class="lab">Per oggi</div></div>' +
+      '<div class="kpi" onclick="document.getElementById(\'cardShopOrd\').scrollIntoView({behavior:\'smooth\'})"><div class="num" style="color:#7C3AED">' + shopAttivi.length + '</div><div class="lab">Ordini Shop</div></div>' +
       '<div class="kpi" onclick="apriApp(state.settings.urlTurni, true)"><div class="num oro">' + alLavoro + '</div><div class="lab">Al lavoro oggi</div></div>' +
       '<div class="kpi" onclick="vai(\'fornitori\')"><div class="num">' + listeAperte + '</div><div class="lab">Liste fornitori</div></div>' +
     '</div>' +
     '<div class="card"><h3>📅 In turno oggi · ' + dLocDaKey(ok) + '</h3>' + boxTurni + '</div>' +
     '<div class="card"><h3>🧾 Ordini in arrivo</h3>' + boxOrdini + '</div>' +
-    '<div class="card"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>';
+    '<div class="card" id="cardShopOrd"><h3>🛍️ Ordini dallo Shop</h3>' + boxOnline + '</div>';
 }
 
 /* ── Ordini Shop in dashboard: stato + contatto cliente ── */
@@ -735,41 +765,103 @@ function telWa(tel){
   if(d.slice(0,2) !== '39') d = '39' + d;
   return d;
 }
-function cardOrdineShop(o){
-  var cosa = (o.articoli||[]).map(function(a){
+function trovaOrdineShop(id){
+  return (LIVE.ordiniOnline||[]).find(function(o){ return o.id === id; });
+}
+function riassuntoOrdine(o){
+  return (o.articoli||[]).map(function(a){
     return a.qta + '× ' + a.nome + (a.formato ? ' ' + a.formato : '') + (a.gusto ? ' (' + a.gusto + ')' : '');
   }).join(', ');
-  var st = statoShopInfo(o.stato);
+}
+function compilaTplShop(o, key){
+  var tpl = (state.settings.tplShop && state.settings.tplShop[key]) || TPL_SHOP_DEFAULT[key] || '';
+  var tempi = (state.shopSped && state.shopSped.tempi) || '3–5 giorni lavorativi dalla presa in carico';
+  var consegna = o.consegna && o.consegna.indirizzo
+    ? 'Consegna a ' + (o.consegna.zona||'') + ', ' + o.consegna.indirizzo + '. '
+    : 'Ritiro in pasticceria' + (o.data ? ' il ' + dLocDaKey(o.data) : '') + '. ';
+  return tpl
+    .replace(/\{nome\}/g, o.nome || '')
+    .replace(/\{negozio\}/g, state.settings.nome || '')
+    .replace(/\{ordine\}/g, riassuntoOrdine(o))
+    .replace(/\{totale\}/g, o.totale ? euro(o.totale) : '')
+    .replace(/\{consegna\}/g, consegna)
+    .replace(/\{tracking\}/g, o.tracking ? ' Tracking: ' + o.tracking + '.' : '')
+    .replace(/\{tempi\}/g, tempi)
+    .replace(/\{data\}/g, o.data ? dLocDaKey(o.data) : '');
+}
+function apriWaOrdine(id, tplKey){
+  var o = trovaOrdineShop(id); if(!o) return;
   var wa = telWa(o.telefono);
-  var msg = encodeURIComponent('Ciao ' + (o.nome || '') + '! Ti scriviamo da ' + state.settings.nome +
-    ' per il tuo ordine' + (cosa ? ': ' + cosa : '') + (o.totale ? ' (tot. ' + euro(o.totale) + ')' : '') + '. ');
-  var sel = '<select onchange="setStatoShop(\'' + o.id + '\', this.value)" style="font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff">' +
-    STATI_SHOP.map(function(s){ return '<option value="' + s[0] + '"' + ((o.stato||'nuovo') === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') +
-    '</select>';
+  if(!wa){ toast('Questo ordine non ha un telefono'); return; }
+  window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(compilaTplShop(o, tplKey)), '_blank');
+}
+function aggiornaOrdineShop(id, patch, poi){
+  if(!db || !id){ toast('Firestore non disponibile'); return; }
+  db.collection('ordini_online').doc(id).set(patch, { merge:true })
+    .then(function(){ if(poi) poi(); })
+    .catch(function(){ toast('Errore aggiornamento ordine'); });
+}
+function azioneShop(id, nuovoStato, tplKey){
+  aggiornaOrdineShop(id, { stato:nuovoStato }, function(){
+    toast('Ordine → ' + nuovoStato);
+    if(tplKey) apriWaOrdine(id, tplKey);
+  });
+}
+function azioneShopSped(id){
+  var tr = prompt('Numero tracking (opzionale — resta vuoto se non ce l\'hai):', '');
+  if(tr === null) return;
+  aggiornaOrdineShop(id, { stato:'spedito', tracking:(tr||'').trim() }, function(){
+    toast('Ordine → spedito');
+    apriWaOrdine(id, 'spedito');
+  });
+}
+function annullaShop(id){
+  if(!confirm('Annullare questo ordine? Il cliente NON viene avvisato in automatico.')) return;
+  aggiornaOrdineShop(id, { stato:'annullato' }, function(){ toast('Ordine annullato'); });
+}
+function cardOrdineShop(o){
+  var cosa = riassuntoOrdine(o);
+  var st = statoShopInfo(o.stato);
+  var stato = o.stato || 'nuovo';
+  var wa = telWa(o.telefono);
+  var spedizione = !!(o.consegna && o.consegna.indirizzo);
+
+  var azione = '';
+  if(stato === 'nuovo')
+    azione = '<button class="btn mini fisso" onclick="azioneShop(\'' + o.id + '\',\'confermato\',\'conferma\')">✅ Conferma</button>';
+  else if(stato === 'confermato')
+    azione = spedizione
+      ? '<button class="btn mini fisso" onclick="azioneShopSped(\'' + o.id + '\')">📮 Spedito…</button>'
+      : '<button class="btn mini fisso" onclick="azioneShop(\'' + o.id + '\',\'pronto\',\'pronto\')">🛍️ Pronto</button>';
+  else if(stato === 'pronto')
+    azione = '<button class="btn mini fisso" onclick="azioneShop(\'' + o.id + '\',\'consegnato\',null)">✔️ Ritirato</button>';
+  else if(stato === 'spedito')
+    azione = '<button class="btn mini fisso" onclick="azioneShop(\'' + o.id + '\',\'consegnato\',null)">✔️ Consegnato</button>';
+
+  var tplKey = stato === 'pronto' ? 'pronto' : stato === 'spedito' ? 'spedito' : 'conferma';
+
   return '<div class="evento" style="align-items:flex-start">' +
-    '<div class="ico oro">🛍️</div>' +
+    '<div class="ico oro">' + (spedizione ? '📦' : '🛍️') + '</div>' +
     '<div style="flex:1">' +
       '<div class="txt">' + esc(o.nome || 'Cliente') + (o.totale ? ' · <b>' + euro(o.totale) + '</b>' : '') +
         ' <span style="background:' + st[2] + ';color:' + st[3] + ';border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:800;margin-left:4px">' + st[1] + '</span></div>' +
       (cosa ? '<div class="ora">' + esc(cosa) + '</div>' : '') +
-      '<div class="ora">' + (o.data ? '📅 ritiro/consegna ' + dLocDaKey(o.data) : 'senza data') +
-        (o.consegna && o.consegna.indirizzo
-          ? ' · 🚚 ' + esc(o.consegna.zona || '') + ' — ' + esc(o.consegna.indirizzo) + (o.consegna.cap ? ' (' + esc(o.consegna.cap) + ')' : '')
+      '<div class="ora">' + (o.data ? '📅 ' + dLocDaKey(o.data) : 'senza data') +
+        (spedizione
+          ? ' · 📦 ' + esc(o.consegna.zona || '') + ' — ' + esc(o.consegna.indirizzo) + (o.consegna.cap ? ' (' + esc(o.consegna.cap) + ')' : '')
           : ' · 🏪 ritiro in negozio') +
-        (o.pagamento ? ' · 💳 ' + esc(o.pagamento) : '') + '</div>' +
+        (o.pagamento ? ' · 💳 ' + esc(o.pagamento) : '') +
+        (o.tracking ? ' · 🔎 ' + esc(o.tracking) : '') + '</div>' +
       (o.note ? '<div class="ora">📝 ' + esc(o.note) + '</div>' : '') +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">' + sel +
-        (wa ? '<a class="btn mini fisso" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + msg + '">💬 WhatsApp</a>' : '') +
-        (o.telefono ? '<a class="btn mini sec fisso" style="text-decoration:none" href="tel:' + esc(o.telefono) + '">📞 ' + esc(o.telefono) + '</a>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">' +
+        azione +
+        (wa ? '<button class="btn mini sec fisso" onclick="apriWaOrdine(\'' + o.id + '\',\'' + tplKey + '\')">💬 WhatsApp</button>' : '') +
+        (o.telefono ? '<a class="btn mini sec fisso" style="text-decoration:none" href="tel:' + esc(o.telefono) + '">📞</a>' : '') +
+        '<button class="btn mini sec fisso" onclick="annullaShop(\'' + o.id + '\')" title="Annulla ordine">↩︎</button>' +
       '</div>' +
     '</div></div>';
 }
-function setStatoShop(id, stato){
-  if(!db || !id){ toast('Firestore non disponibile'); return; }
-  db.collection('ordini_online').doc(id).set({ stato: stato }, { merge: true })
-    .then(function(){ toast('Ordine segnato: ' + stato); })
-    .catch(function(){ toast('Errore aggiornamento stato'); });
-}
+
 
 function legendaTurni(){
   return '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' +
@@ -1190,6 +1282,13 @@ function renderShop(){
       '<input type="text" class="sf-desc" data-pid="' + p.id + '" value="' + esc(p.desc||'') + '" placeholder="Es. Lievitato 36h, ingredienti selezionati">' +
       '<label class="lbl">Foto (link immagine — es. da Google Drive)</label>' +
       '<input type="text" class="sf-foto" data-pid="' + p.id + '" value="' + esc(p.foto||'') + '" placeholder="https://...">' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Disponibilità (vuoto = ∞)</label><input type="number" class="sf-stock" data-pid="' + p.id + '" min="0" step="1" value="' + (p.stock === '' || p.stock === undefined || p.stock === null ? '' : p.stock) + '" placeholder="30"></div>' +
+        '<div><label class="lbl">Vendita</label><select class="sf-vendita" data-pid="' + p.id + '">' +
+          '<option value="entrambi"' + (p.vendita !== 'ritiro' ? ' selected' : '') + '>📦 Ritiro e spedizione</option>' +
+          '<option value="ritiro"' + (p.vendita === 'ritiro' ? ' selected' : '') + '>🏪 Solo ritiro</option>' +
+        '</select></div>' +
+      '</div>' +
       '<label class="lbl">Gusti (senza differenza di prezzo)</label>' +
       '<div>' + (gusti || '<span class="muted">nessuno</span>') + '</div>' +
       '<div class="riga" style="margin-top:6px">' +
@@ -1227,6 +1326,8 @@ function renderShop(){
       '</div>' +
       '<p class="muted" style="margin-bottom:8px">I prodotti vanno online solo quando premi Pubblica: i clienti scelgono gusto e formato dal link, e l\'ordine arriva in Dashboard.</p>' +
       '<button class="btn oro blocco" onclick="pubblicaShop()">🚀 Pubblica vetrina</button>' +
+      '<button class="btn sec blocco" style="margin-top:6px" onclick="vediRimanenze()">↻ Rimanenze online</button>' +
+      '<p class="muted" style="margin-top:6px">Le rimanenze scendono da sole a ogni ordine. Quando ripubblichi, il numero che hai scritto qui SOVRASCRIVE le rimanenze (= riassortimento).</p>' +
     '</div>' +
     '<div class="card"><h3>➕ Inserisci prodotto</h3>' +
       '<label class="lbl">Nome</label><input type="text" id="npNome" placeholder="Es. Panettone artigianale">' +
@@ -1238,6 +1339,10 @@ function renderShop(){
       '<input type="number" id="npPrezzo" step="0.10" min="0" placeholder="28.00">' +
       '<label class="lbl">Gusti (separati da virgola — opzionale)</label>' +
       '<input type="text" id="npVar" placeholder="Cioccolato, Vaniglia, Caramello salato">' +
+      '<label class="lbl">Disponibilità (pezzi — vuoto = sempre disponibile)</label>' +
+      '<input type="number" id="npStock" min="0" step="1" placeholder="30">' +
+      '<label class="lbl">Vendita</label>' +
+      '<select id="npVendita"><option value="entrambi">📦 Ritiro e spedizione</option><option value="ritiro">🏪 Solo ritiro in pasticceria (deperibile)</option></select>' +
       '<button class="btn blocco" onclick="nuovoProdotto()">Crea prodotto</button>' +
     '</div>' +
     (negozio.length ? '<div class="card"><h3>🛍️ I tuoi prodotti</h3>' + negozio.map(cardNegozio).join('') + '</div>' : '') +
@@ -1247,6 +1352,8 @@ function renderShop(){
         '<div><label class="lbl">Roma €</label><input type="number" class="sf-sped" data-z="roma" step="0.5" min="0" value="' + (sped.roma||0) + '"></div>' +
         '<div><label class="lbl">Fuori Roma €</label><input type="number" class="sf-sped" data-z="fuori" step="0.5" min="0" value="' + (sped.fuori||0) + '"></div>' +
       '</div>' +
+      '<label class="lbl">Tempi di spedizione (mostrati al cliente)</label>' +
+      '<input type="text" id="spedTempi" value="' + esc(sped.tempi || '3–5 giorni lavorativi dalla presa in carico') + '">' +
       '<p class="muted" style="margin-top:8px">La zona la decide il CAP del cliente al checkout: 00118–00199 = Roma città, tutto il resto = fuori Roma. Ritiro in negozio sempre gratuito.</p>' +
     '</div>';
 
@@ -1286,6 +1393,9 @@ function flushShopForm(){
   }
   ap('.sf-desc', function(p, inp){ p.desc = inp.value.trim(); });
   ap('.sf-foto', function(p, inp){ p.foto = inp.value.trim(); });
+  ap('.sf-stock', function(p, inp){ var v = inp.value.trim(); p.stock = v === '' ? '' : Math.max(0, parseInt(v, 10) || 0); });
+  ap('.sf-vendita', function(p, sel){ p.vendita = sel.value === 'ritiro' ? 'ritiro' : 'entrambi'; });
+  var tEl = document.getElementById('spedTempi'); if(tEl) state.shopSped.tempi = tEl.value.trim();
   ap('.sf-stripebase', function(p, inp){ p.stripe = inp.value.trim(); });
   ap('.sf-prezzo', function(p, inp){
     var i = Number(inp.dataset.i);
@@ -1323,12 +1433,28 @@ function rimuoviFormato(pid, i){
 }
 
 /* Pubblica la vetrina su shop_app/catalogo (merge, con verifica in rilettura) */
+/* Legge le rimanenze reali dal catalogo online (scalate dagli ordini) */
+function vediRimanenze(){
+  if(!db){ toast('Firebase non disponibile'); return; }
+  db.collection('shop_app').doc('catalogo').get().then(function(doc){
+    if(!doc.exists){ toast('Vetrina non ancora pubblicata'); return; }
+    var pr = (doc.data().prodotti || []).filter(function(p){ return p.stock !== null && p.stock !== undefined; });
+    if(!pr.length){ alert('Nessun prodotto con disponibilità limitata.'); return; }
+    alert('Rimanenze online:\n\n' + pr.map(function(p){
+      return '• ' + p.nome + ': ' + (p.stock <= 0 ? 'ESAURITO' : p.stock + ' pezzi');
+    }).join('\n'));
+  }).catch(function(){ toast('Errore lettura rimanenze'); });
+}
+
 function pubblicaShop(){
   flushShopForm();
   if(!db){ toast('Firebase non disponibile'); return; }
   var prodotti = state.prodotti.filter(function(p){ return p.cat === 'negozio' && p.attivo; })
     .map(function(p){
       return {
+        id:p.id,
+        stock:(p.stock === '' || p.stock === undefined || p.stock === null) ? null : Number(p.stock),
+        vendita:(p.vendita === 'ritiro' ? 'ritiro' : 'entrambi'),
         nome:p.nome, desc:p.desc||'', foto:p.foto||'', prezzo:Number(p.prezzo)||0, um:p.um||'pz',
         gusti:(p.varianti||[]).filter(function(v){ return v.disp; }).map(function(v){ return v.nome; }),
         formati:(p.formati||[]).map(function(f){ return { nome:f.nome, prezzo:Number(f.prezzo)||0, stripe:f.stripe||'' }; }),
@@ -1340,7 +1466,8 @@ function pubblicaShop(){
     spedizione:{
       attiva:!!state.shopSped.attiva,
       roma:Number(state.shopSped.roma)||0,
-      fuori:Number(state.shopSped.fuori)||0
+      fuori:Number(state.shopSped.fuori)||0,
+      tempi:state.shopSped.tempi || '3–5 giorni lavorativi dalla presa in carico'
     },
     nome:state.settings.nome || 'Pasticceria Fagotti',
     waNumber:state.botCat.waNumber || '',
@@ -1387,6 +1514,8 @@ function nuovoProdotto(){
     id:uid(), nome:nome, prezzo:prezzo, um:'pz', cat:'negozio',
     varianti:varianti, formati:formati,
     foto:document.getElementById('npFoto').value.trim(), desc:'', stripe:'',
+    stock:(function(){ var v = document.getElementById('npStock').value.trim(); return v === '' ? '' : Math.max(0, parseInt(v, 10) || 0); })(),
+    vendita:(document.getElementById('npVendita').value === 'ritiro' ? 'ritiro' : 'entrambi'),
     allergeni:[], ingredienti:'', attivo:true
   });
   salva();
@@ -2076,6 +2205,16 @@ function renderImpostazioni(){
       '</div>' +
       '<p class="muted" style="margin-top:8px">Nota versione free: i dati vivono nel browser (localStorage). Gli ordini dal link arrivano in Dashboard se aperto su questo stesso dispositivo/browser; per ricevere ordini da qualsiasi telefono servirà la versione con backend (Supabase).</p>' +
     '</div>' +
+    '<div class="card"><h3>💬 Messaggi WhatsApp dello Shop</h3>' +
+      '<p class="muted">Testi inviati dai bottoni degli ordini Shop. Segnaposto disponibili: <b>{nome} {negozio} {ordine} {totale} {consegna} {tracking} {tempi} {data}</b></p>' +
+      '<label class="lbl">✅ Conferma ordine</label>' +
+      '<textarea onchange="state.settings.tplShop.conferma=this.value;salva()">' + esc((state.settings.tplShop||TPL_SHOP_DEFAULT).conferma) + '</textarea>' +
+      '<label class="lbl">🛍️ Pronto per il ritiro</label>' +
+      '<textarea onchange="state.settings.tplShop.pronto=this.value;salva()">' + esc((state.settings.tplShop||TPL_SHOP_DEFAULT).pronto) + '</textarea>' +
+      '<label class="lbl">📦 Spedito</label>' +
+      '<textarea onchange="state.settings.tplShop.spedito=this.value;salva()">' + esc((state.settings.tplShop||TPL_SHOP_DEFAULT).spedito) + '</textarea>' +
+      '<button class="btn sec blocco" style="margin-top:6px" onclick="state.settings.tplShop=JSON.parse(JSON.stringify(TPL_SHOP_DEFAULT));salva();render();toast(\'Testi ripristinati\')">↺ Ripristina testi standard</button>' +
+    '</div>' +
     '<div class="card"><h3>🔗 App Fagotti collegate</h3>' +
       '<p class="muted">La password condivisa genera i link con auto-login (?k=): entri nella Suite una volta sola.</p>' +
       '<label class="lbl">Password condivisa app</label>' +
@@ -2207,7 +2346,9 @@ function caricaShopCliente(){
 function shopFallbackLocale(){
   SHOPCLI.prodotti = state.prodotti.filter(function(p){ return p.attivo && p.cat === 'negozio'; })
     .map(function(p){
-      return { nome:p.nome, desc:p.desc||'', foto:p.foto||'', prezzo:p.prezzo, um:p.um,
+      return { id:p.id, nome:p.nome, desc:p.desc||'', foto:p.foto||'', prezzo:p.prezzo, um:p.um,
+        stock:(p.stock === '' || p.stock === undefined || p.stock === null) ? null : Number(p.stock),
+        vendita:(p.vendita === 'ritiro' ? 'ritiro' : 'entrambi'),
         gusti:(p.varianti||[]).filter(function(v){ return v.disp; }).map(function(v){ return v.nome; }),
         formati:p.formati||[], stripe:p.stripe||'' };
     });
@@ -2240,9 +2381,6 @@ function renderClienteShop(){
   var prodotti = SHOPCLI.prodotti;
   var cards = prodotti.length
     ? prodotti.map(function(p, i){
-        var foto = p.foto
-          ? '<img src="' + esc(p.foto) + '" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px" onerror="this.style.display=\'none\'">'
-          : '';
         var gusti = (p.gusti||[]).length
           ? '<div class="gusti">' + p.gusti.map(function(g){
               var sel = selGusto[i] === g ? ' sel' : '';
@@ -2257,7 +2395,20 @@ function renderClienteShop(){
           : '';
         var nelCarrello = carrello.filter(function(c){ return c.idx === i; })
           .reduce(function(t,c){ return t + c.qta; }, 0);
-        return '<div class="prodotto-card">' + foto +
+        var stockN = (p.stock === undefined || p.stock === null || p.stock === '') ? null : Number(p.stock);
+        var esaurito = stockN !== null && stockN <= 0;
+        var pochi = stockN !== null && stockN > 0 && stockN <= 5;
+        var soloRit = p.vendita === 'ritiro';
+        var badges = (soloRit ? '<span class="badge grigio">🏪 solo ritiro</span>' : '') +
+          (esaurito ? '<span class="badge err">ESAURITO</span>' : (pochi ? '<span class="badge oro">Ultimi ' + stockN + '</span>' : ''));
+        var fotoBlocco = p.foto
+          ? '<div class="pcard-foto"><img src="' + esc(p.foto) + '" onerror="this.parentElement.style.display=\'none\'">' +
+            (badges ? '<div class="badges-foto">' + badges + '</div>' : '') + '</div>'
+          : '';
+        /* Senza foto i badge restano sopra il nome, così Esaurito/Ultimi/Solo ritiro si vedono comunque */
+        var badgesSenzaFoto = (!p.foto && badges) ? '<div style="margin-bottom:6px">' + badges + '</div>' : '';
+        return '<div class="prodotto-card">' + fotoBlocco +
+          '<div class="pcard-body">' + badgesSenzaFoto +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">' +
             '<div class="pnome">' + esc(p.nome) + '</div>' +
             '<div class="pprezzo">' + euro(prezzoSel(p, i)) + (p.um === 'kg' ? '/kg' : '') + '</div>' +
@@ -2266,15 +2417,17 @@ function renderClienteShop(){
           formati + gusti +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">' +
             '<span class="muted">' + (nelCarrello ? nelCarrello + ' nel carrello' : '') + '</span>' +
-            '<button class="btn" onclick="aggiungiCarrello(' + i + ')">Aggiungi 🛒</button>' +
-          '</div></div>';
+            (esaurito
+              ? '<button class="btn sec" disabled style="opacity:.5">Esaurito</button>'
+              : '<button class="btn" onclick="aggiungiCarrello(' + i + ')">Aggiungi 🛒</button>') +
+          '</div></div></div>';
       }).join('')
     : '<div class="card"><p class="muted">Il negozio online è momentaneamente vuoto. Torna presto!</p></div>';
 
   var nTot = carrello.reduce(function(t,c){ return t + c.qta; }, 0);
   var eTot = carrello.reduce(function(t,c){ return t + c.prezzo * c.qta; }, 0);
   var bar = nTot
-    ? '<div class="carrello-bar"><div class="tot">' + nTot + ' art. · ' + euro(eTot) + '</div>' +
+    ? '<div class="carrello-bar"><div class="tot"><small>' + nTot + (nTot === 1 ? ' articolo' : ' articoli') + '</small>' + euro(eTot) + '</div>' +
       '<button class="btn oro" onclick="mostraCheckout()">Concludi ordine →</button></div>'
     : '';
 
@@ -2302,9 +2455,15 @@ function aggiungiCarrello(i){
   var formato = fi >= 0 ? p.formati[fi].nome : '';
   var stripe = fi >= 0 ? (p.formati[fi].stripe || p.stripe || '') : (p.stripe || '');
   var gusto = selGusto[i] || '';
+  var stockN = (p.stock === undefined || p.stock === null || p.stock === '') ? null : Number(p.stock);
+  var giaTot = carrello.filter(function(c){ return c.idx === i; }).reduce(function(t,c){ return t + c.qta; }, 0);
+  if(stockN !== null && giaTot + 1 > stockN){
+    toast(stockN <= 0 ? 'Prodotto esaurito' : 'Disponibili solo ' + stockN + ' pezzi');
+    return;
+  }
   var esist = carrello.find(function(c){ return c.idx === i && c.gusto === gusto && c.formato === formato; });
   if(esist) esist.qta++;
-  else carrello.push({ idx:i, nome:p.nome, gusto:gusto, formato:formato,
+  else carrello.push({ idx:i, pid:(p.id||''), soloRitiro:(p.vendita === 'ritiro'), nome:p.nome, gusto:gusto, formato:formato,
     prezzo:prezzoSel(p, i), stripe:stripe, qta:1 });
   render();
   toast('Aggiunto: ' + p.nome + (formato ? ' ' + formato : '') + (gusto ? ' (' + gusto + ')' : ''));
@@ -2329,7 +2488,14 @@ function mostraCheckout(){
 
   var sped = SHOPCLI.spedizione || { attiva:false };
   var boxSped = '';
-  if(sped.attiva){
+  var soloRitNomi = carrello.filter(function(c){ return c.soloRitiro; })
+    .map(function(c){ return c.nome; })
+    .filter(function(v, ix, a){ return a.indexOf(v) === ix; });
+  if(sped.attiva && soloRitNomi.length){
+    boxSped = '<div class="muted" style="margin:8px 0;background:var(--soft);border-radius:10px;padding:10px">' +
+      '🏪 Questo ordine si ritira in pasticceria: <b>' + esc(soloRitNomi.join(', ')) + '</b> non ' +
+      (soloRitNomi.length > 1 ? 'sono spedibili' : 'è spedibile') + '.</div>';
+  } else if(sped.attiva){
     boxSped =
       '<label class="lbl">Come lo vuoi?</label>' +
       '<select id="ckModo" onchange="document.getElementById(\'ckSpedBox\').style.display = this.value === \'consegna\' ? \'block\' : \'none\'">' +
@@ -2342,6 +2508,7 @@ function mostraCheckout(){
         '<div class="muted" id="ckZonaInfo" style="margin-top:4px"></div>' +
         '<label class="lbl">Indirizzo di consegna</label>' +
         '<input type="text" id="ckIndirizzo" placeholder="Via, numero civico, città">' +
+        '<div class="muted" style="margin-top:6px">📦 Spedizione: ' + esc(sped.tempi || '3–5 giorni lavorativi dalla presa in carico') + '</div>' +
       '</div>';
   }
 
@@ -2359,6 +2526,12 @@ function mostraCheckout(){
 }
 
 function cambiaQta(i, delta){
+  if(delta > 0){
+    var p = SHOPCLI.prodotti[carrello[i].idx] || {};
+    var s = (p.stock === undefined || p.stock === null || p.stock === '') ? null : Number(p.stock);
+    var tot = carrello.filter(function(c){ return c.idx === carrello[i].idx; }).reduce(function(t,c){ return t + c.qta; }, 0);
+    if(s !== null && tot + 1 > s){ toast('Disponibili solo ' + s + ' pezzi'); return; }
+  }
   carrello[i].qta += delta;
   if(carrello[i].qta <= 0) carrello.splice(i,1);
   render();
@@ -2379,6 +2552,10 @@ function confermaOrdineShop(){
   var consegna = null;
   var modoEl = document.getElementById('ckModo');
   if(modoEl && modoEl.value === 'consegna'){
+    if(carrello.some(function(c){ return c.soloRitiro; })){
+      toast('Alcuni prodotti sono solo da ritiro: scegli il ritiro in negozio');
+      return;
+    }
     var cap = document.getElementById('ckCap').value.trim();
     var zona = zonaDaCap(cap);
     if(!zona){ toast('Inserisci un CAP valido (5 cifre)'); return; }
@@ -2397,18 +2574,51 @@ function confermaOrdineShop(){
     pagamento:'in negozio', creato:Date.now()
   };
   var daPagare = carrello.filter(function(c){ return c.stripe; });
+  var scala = carrello.filter(function(c){ return c.pid; })
+    .map(function(c){ return { pid:c.pid, qta:c.qta }; });
 
   function fine(){
+    // aggiorno subito anche la copia locale della vetrina
+    scala.forEach(function(it){
+      (SHOPCLI.prodotti || []).forEach(function(p){
+        if(p.id === it.pid && p.stock !== null && p.stock !== undefined && p.stock !== '')
+          p.stock = Math.max(0, Number(p.stock) - it.qta);
+      });
+    });
     schermataGrazieShop(nome, ritiro, daPagare, ordine);
     carrello = []; selGusto = {}; selFormato = {};
   }
   if(db){
-    db.collection('ordini_online').add(ordine).then(fine).catch(function(){
+    db.collection('ordini_online').add(ordine).then(function(){
+      scalaStockShop(scala);
+      fine();
+    }).catch(function(){
       salvaOrdineShopLocale(ordine); fine();
     });
   }else{
     salvaOrdineShopLocale(ordine); fine();
   }
+}
+
+/* Scala le disponibilità sul catalogo pubblicato. Transaction: se due clienti
+   ordinano insieme, Firestore riprova da solo e i conti tornano. */
+function scalaStockShop(items){
+  if(!db || !items.length) return;
+  var ref = db.collection('shop_app').doc('catalogo');
+  db.runTransaction(function(tx){
+    return tx.get(ref).then(function(doc){
+      if(!doc.exists) return;
+      var d = doc.data();
+      var pr = d.prodotti || [];
+      items.forEach(function(it){
+        pr.forEach(function(p){
+          if(p.id === it.pid && p.stock !== null && p.stock !== undefined)
+            p.stock = Math.max(0, Number(p.stock) - it.qta);
+        });
+      });
+      tx.update(ref, { prodotti: pr });
+    });
+  }).catch(function(e){ console.warn('Aggiornamento rimanenze:', e); });
 }
 
 function salvaOrdineShopLocale(ordine){
