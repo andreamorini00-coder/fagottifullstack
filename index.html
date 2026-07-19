@@ -475,6 +475,7 @@ function euro(n){ return Number(n||0).toFixed(2).replace('.',',') + ' €'; }
 
 function telWa(t){
   var n = String(t||'').replace(/\D/g,'');
+  if(!n) return '';
   if(n.length === 10 && n.charAt(0) === '3') n = '39' + n;
   return n;
 }
@@ -759,12 +760,6 @@ function statoShopInfo(s){
   return STATI_SHOP[0];
 }
 /* Telefono → formato wa.me: cifre, prefisso 39 se manca */
-function telWa(tel){
-  var d = String(tel||'').replace(/\D/g, '');
-  if(!d) return '';
-  if(d.slice(0,2) !== '39') d = '39' + d;
-  return d;
-}
 function trovaOrdineShop(id){
   return (LIVE.ordiniOnline||[]).find(function(o){ return o.id === id; });
 }
