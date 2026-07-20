@@ -236,6 +236,52 @@ body.cliente input,body.cliente select,body.cliente textarea,body.cliente button
 footer.firma{
   text-align:center;padding:22px 20px 8px;font-family:'Cabin',sans-serif;font-size:10.5px;color:#9ca3af;
 }
+/* Colonna mobile anche su desktop: la vetrina resta stretta come il mockup */
+body.cliente .view.show{max-width:480px;margin:0 auto}
+body.cliente .carrello-bar{
+  left:50%;right:auto;transform:translateX(-50%);
+  width:calc(100% - 48px);max-width:432px;
+}
+/* Hero copertina (badge stagione + titolo grande), stile mockup Figma */
+.vhero{
+  position:relative;margin:0 -16px 18px;height:225px;overflow:hidden;
+  background:linear-gradient(115deg,#c9a84c,#8a6d1f);
+  background-size:cover;background-position:center;
+  display:flex;flex-direction:column;justify-content:flex-end;
+}
+.vhero:before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to top, rgba(17,24,39,.82) 0%, rgba(17,24,39,.15) 55%, rgba(17,24,39,0) 100%);
+}
+.vhero .vbadge{
+  position:absolute;top:16px;left:18px;background:var(--oro);color:var(--ink);
+  border-radius:20px;padding:5px 13px;font-size:10.5px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;font-family:'Cabin',sans-serif;
+}
+.vhero .vtitolo{
+  position:relative;color:#fff;font-family:'Cormorant',serif;font-weight:600;
+  font-size:29px;line-height:1.08;padding:0 18px 4px;
+}
+.vhero .vsotto{
+  position:relative;color:#e3e4e8;font-size:12.5px;padding:0 18px 16px;font-family:'Cabin',sans-serif;
+}
+/* Segnaposto foto: gradiente oro con iniziale, come i placeholder del mockup */
+.prodotto-card .pcard-foto.ph{
+  height:150px;background:linear-gradient(120deg,#efe1bd,#d3b57b);
+  display:flex;align-items:center;justify-content:center;
+}
+.prodotto-card .pcard-foto.ph span{
+  font-family:'Cormorant',serif;font-weight:600;font-size:46px;color:rgba(17,24,39,.30);
+}
+/* Footer vetrina: chiusura brand come nel mockup */
+.vfooter{
+  background:var(--ink);color:#fff;text-align:center;margin:22px -16px -16px;
+  padding:26px 20px 22px;
+}
+.vfooter .vfb{font-family:'Cormorant',serif;font-weight:600;font-size:20px;color:var(--oro)}
+.vfooter .vfs{color:#b8bac0;font-size:11px;margin-top:2px;font-family:'Cabin',sans-serif}
+.vfooter .vfl{display:flex;gap:14px;justify-content:center;margin-top:12px}
+.vfooter .vfl a{color:var(--oro);font-size:12px;font-weight:600;text-decoration:none;font-family:'Cabin',sans-serif}
 
 /* ---------- Login ---------- */
 #login{
@@ -391,6 +437,7 @@ function statoDefault(){
     prodotti: seedProdotti(),
     fornitori: seedFornitori(),
     shopSped:{ attiva:false, roma:5, fuori:9, tempi:'3–5 giorni lavorativi dalla presa in carico' },
+    shopVetrina:{ badge:'Natale 2026', titolo:'Panettoni & Cesti artigianali', sotto:'Fatti a mano ogni giorno, come 46 anni fa', copertina:'' },
     botCat:{ caricato:false, waNumber:'', pageUrl:'', shopUrl:'', consegnaVicino:10, consegnaLontano:15,
       kgPersona:0.15, stimaMin:85, stimaMax:115, listino:[], farciture:[], decorazioni:[], orari:[] },
     bot:{ templates:[
@@ -429,6 +476,7 @@ function carica(){
       delete s.botCat.costoConsegna;
     }
     if(s.settings && !s.settings.tplShop) s.settings.tplShop = JSON.parse(JSON.stringify(TPL_SHOP_DEFAULT));
+    if(!s.shopVetrina) s.shopVetrina = { badge:'Natale 2026', titolo:'Panettoni & Cesti artigianali', sotto:'Fatti a mano ogni giorno, come 46 anni fa', copertina:'' };
     if(s.shopSped && s.shopSped.tempi === undefined) s.shopSped.tempi = '3–5 giorni lavorativi dalla presa in carico';
     if(s.shopSped && s.shopSped.fasce){
       s.shopSped = { attiva:!!s.shopSped.attiva,
@@ -442,6 +490,90 @@ function carica(){
 }
 
 function salva(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+/* ─── Caricamento immagini diretto (apri cartella → seleziona) ───
+   Comprime e ridimensiona nel browser: niente Firebase Storage (che da feb 2026
+   richiede il piano Blaze a pagamento), niente servizi esterni. La foto diventa
+   una stringa compatta salvata col prodotto. Tenere le foto sotto ~900px fa sì
+   che il catalogo pubblicato resti sotto il limite Firestore di 1MB. */
+function comprimiImg(file, maxLato, q, cb){
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      if(w >= h && w > maxLato){ h = Math.round(h * maxLato / w); w = maxLato; }
+      else if(h > w && h > maxLato){ w = Math.round(w * maxLato / h); h = maxLato; }
+      var cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      var ctx = cv.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img, 0, 0, w, h);
+      try { cb(cv.toDataURL('image/jpeg', q)); } catch(err){ cb(null); }
+    };
+    img.onerror = function(){ cb(null); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){ cb(null); };
+  reader.readAsDataURL(file);
+}
+/* Carica foto su un prodotto esistente */
+function caricaFotoProd(inp, pid){
+  var f = inp.files && inp.files[0]; if(!f){ return; }
+  if(f.size > 12*1024*1024){ toast('Immagine troppo grande (max 12MB)'); inp.value=''; return; }
+  toast('Carico immagine…');
+  comprimiImg(f, 900, 0.72, function(d){
+    inp.value='';
+    if(!d){ toast('Non riesco a leggere questa immagine'); return; }
+    flushShopForm();
+    var p = state.prodotti.find(function(x){ return x.id === pid; });
+    if(p){ p.foto = d; salva(); }
+    renderShop();
+    toast('Foto caricata ✓');
+  });
+}
+/* Rimuove la foto da un prodotto */
+function rimuoviFoto(pid){
+  flushShopForm();
+  var p = state.prodotti.find(function(x){ return x.id === pid; });
+  if(p){ p.foto = ''; salva(); }
+  renderShop();
+}
+/* Carica foto nel form "Inserisci prodotto" (mette il dato nel campo #npFoto) */
+function caricaFotoNuovo(inp){
+  var f = inp.files && inp.files[0]; if(!f){ return; }
+  if(f.size > 12*1024*1024){ toast('Immagine troppo grande (max 12MB)'); inp.value=''; return; }
+  toast('Carico immagine…');
+  comprimiImg(f, 900, 0.72, function(d){
+    inp.value='';
+    if(!d){ toast('Non riesco a leggere questa immagine'); return; }
+    var el = document.getElementById('npFoto'); if(el) el.value = d;
+    var pv = document.getElementById('npFotoPrev');
+    if(pv){ pv.src = d; pv.style.display='block'; }
+    toast('Immagine pronta ✓');
+  });
+}
+/* HTML del campo foto di un prodotto: link SEMPRE visibile + bottone Carica,
+   oppure, se è una foto caricata, anteprima + Rimuovi. Un unico posto, riusato. */
+function htmlCampoFoto(pid, foto){
+  var caricata = foto && foto.indexOf('data:') === 0;
+  var anteprima = foto
+    ? '<img src="' + esc(foto) + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" onerror="this.style.display=\'none\'"> '
+    : '';
+  var riga = caricata
+    ? '<input type="text" class="sf-foto" data-pid="' + pid + '" value="' + esc(foto) + '" style="display:none">' +
+      '<div class="riga" style="align-items:center">' +
+        '<span class="badge ok">📷 Immagine caricata</span>' +
+        '<label class="btn mini sec fisso" style="cursor:pointer">📁 Sostituisci<input type="file" accept="image/*" onchange="caricaFotoProd(this,\'' + pid + '\')" hidden></label>' +
+        '<button class="btn mini rosso fisso" onclick="rimuoviFoto(\'' + pid + '\')">✕ Rimuovi</button>' +
+      '</div>'
+    : '<div class="riga">' +
+        '<input type="text" class="sf-foto" data-pid="' + pid + '" value="' + esc(foto||'') + '" placeholder="Incolla un link https://…  oppure carica →">' +
+        '<label class="btn mini sec fisso" style="cursor:pointer">📁 Carica<input type="file" accept="image/*" onchange="caricaFotoProd(this,\'' + pid + '\')" hidden></label>' +
+      '</div>';
+  return '<label class="lbl">Foto prodotto</label>' +
+    (anteprima ? '<div style="margin:2px 0 6px">' + anteprima + '</div>' : '') + riga;
+}
 
 /* ---------- Helpers ---------- */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -1227,8 +1359,7 @@ function renderShop(){
           '<span class="badge oro">' + ({negozio:'🛍️ Negozio',torta:'🎂 Torte su ordinazione',laboratorio:'🧪 Laboratorio (solo etichette)'}[p.cat]||p.cat) + '</span></div>' +
         '<div class="dett">' + euro(p.prezzo) + ' / ' + esc(p.um) + '</div>' +
       '</div></div>' +
-      '<label class="lbl">Foto (link immagine — es. da Google Drive)</label>' +
-      '<input type="text" class="sf-foto" data-pid="' + p.id + '" value="' + esc(p.foto||'') + '" placeholder="https://...">' +
+      htmlCampoFoto(p.id, p.foto) +
       '<div style="margin-top:8px">' + (gusti || '<span class="muted">Nessuna variante</span>') + '</div>' +
       '<div class="riga" style="margin-top:8px">' +
         '<input type="text" id="var-' + p.id + '" placeholder="Nuovo gusto/variante">' +
@@ -1275,8 +1406,7 @@ function renderShop(){
       '</div>' +
       '<label class="lbl">Descrizione breve</label>' +
       '<input type="text" class="sf-desc" data-pid="' + p.id + '" value="' + esc(p.desc||'') + '" placeholder="Es. Lievitato 36h, ingredienti selezionati">' +
-      '<label class="lbl">Foto (link immagine — es. da Google Drive)</label>' +
-      '<input type="text" class="sf-foto" data-pid="' + p.id + '" value="' + esc(p.foto||'') + '" placeholder="https://...">' +
+      htmlCampoFoto(p.id, p.foto) +
       '<div class="riga">' +
         '<div><label class="lbl">Disponibilità (vuoto = ∞)</label><input type="number" class="sf-stock" data-pid="' + p.id + '" min="0" step="1" value="' + (p.stock === '' || p.stock === undefined || p.stock === null ? '' : p.stock) + '" placeholder="30"></div>' +
         '<div><label class="lbl">Vendita</label><select class="sf-vendita" data-pid="' + p.id + '">' +
@@ -1320,14 +1450,26 @@ function renderShop(){
         '<h3 style="margin:0">🛍️ Vetrina Shop <span class="badge ' + (attiviN?'ok':'grigio') + '">' + attiviN + ' online</span></h3>' + statoPub +
       '</div>' +
       '<p class="muted" style="margin-bottom:8px">I prodotti vanno online solo quando premi Pubblica: i clienti scelgono gusto e formato dal link, e l\'ordine arriva in Dashboard.</p>' +
+      '<label class="lbl">Copertina (link immagine, vuoto = fondo oro)</label>' +
+      '<input type="text" id="vetCopertina" value="' + esc(state.shopVetrina.copertina||'') + '" placeholder="https://...">' +
+      '<div class="riga">' +
+        '<div><label class="lbl">Badge stagione</label><input type="text" id="vetBadge" value="' + esc(state.shopVetrina.badge||'') + '" placeholder="Natale 2026"></div>' +
+        '<div><label class="lbl">Titolo vetrina</label><input type="text" id="vetTitolo" value="' + esc(state.shopVetrina.titolo||'') + '" placeholder="Panettoni & Cesti"></div>' +
+      '</div>' +
+      '<label class="lbl">Sottotitolo</label>' +
+      '<input type="text" id="vetSotto" value="' + esc(state.shopVetrina.sotto||'') + '">' +
       '<button class="btn oro blocco" onclick="pubblicaShop()">🚀 Pubblica vetrina</button>' +
       '<button class="btn sec blocco" style="margin-top:6px" onclick="vediRimanenze()">↻ Rimanenze online</button>' +
       '<p class="muted" style="margin-top:6px">Le rimanenze scendono da sole a ogni ordine. Quando ripubblichi, il numero che hai scritto qui SOVRASCRIVE le rimanenze (= riassortimento).</p>' +
     '</div>' +
     '<div class="card"><h3>➕ Inserisci prodotto</h3>' +
       '<label class="lbl">Nome</label><input type="text" id="npNome" placeholder="Es. Panettone artigianale">' +
-      '<label class="lbl">Foto (link immagine — opzionale)</label>' +
-      '<input type="text" id="npFoto" placeholder="https://...">' +
+      '<label class="lbl">Foto prodotto (incolla un link oppure carica dal telefono/PC)</label>' +
+      '<div class="riga">' +
+        '<input type="text" id="npFoto" placeholder="https://…  oppure carica →">' +
+        '<label class="btn mini sec fisso" style="cursor:pointer">📁 Carica<input type="file" accept="image/*" onchange="caricaFotoNuovo(this)" hidden></label>' +
+      '</div>' +
+      '<img id="npFotoPrev" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);margin-top:6px">' +
       '<label class="lbl">Formati con prezzo (nome=prezzo, separati da virgola — opzionale)</label>' +
       '<input type="text" id="npFormati" placeholder="750g=22, 1kg=28">' +
       '<label class="lbl">Prezzo base € (se non usi i formati)</label>' +
@@ -1391,6 +1533,10 @@ function flushShopForm(){
   ap('.sf-stock', function(p, inp){ var v = inp.value.trim(); p.stock = v === '' ? '' : Math.max(0, parseInt(v, 10) || 0); });
   ap('.sf-vendita', function(p, sel){ p.vendita = sel.value === 'ritiro' ? 'ritiro' : 'entrambi'; });
   var tEl = document.getElementById('spedTempi'); if(tEl) state.shopSped.tempi = tEl.value.trim();
+  ['copertina','badge','titolo','sotto'].forEach(function(k){
+    var el = document.getElementById('vet' + k.charAt(0).toUpperCase() + k.slice(1));
+    if(el) state.shopVetrina[k] = el.value.trim();
+  });
   ap('.sf-stripebase', function(p, inp){ p.stripe = inp.value.trim(); });
   ap('.sf-prezzo', function(p, inp){
     var i = Number(inp.dataset.i);
@@ -1463,6 +1609,10 @@ function pubblicaShop(){
       roma:Number(state.shopSped.roma)||0,
       fuori:Number(state.shopSped.fuori)||0,
       tempi:state.shopSped.tempi || '3–5 giorni lavorativi dalla presa in carico'
+    },
+    vetrina:{
+      badge:state.shopVetrina.badge||'', titolo:state.shopVetrina.titolo||'',
+      sotto:state.shopVetrina.sotto||'', copertina:state.shopVetrina.copertina||''
     },
     nome:state.settings.nome || 'Pasticceria Fagotti',
     waNumber:state.botCat.waNumber || '',
@@ -2306,8 +2456,8 @@ function renderCliente(){
   else renderClienteTorta();
 }
 
-function heroCliente(sottotitolo){
-  return '<div class="cliente-hero" style="margin:-16px -16px 16px;border-radius:0 0 16px 16px">' +
+function heroCliente(sottotitolo, flat){
+  return '<div class="cliente-hero" style="margin:-16px -16px ' + (flat ? '0' : '16px') + (flat ? '' : ';border-radius:0 0 16px 16px') + '">' +
     '<h1>' + esc(state.settings.nome) + ' <span>·</span></h1>' +
     '<p>' + sottotitolo + '</p></div>';
 }
@@ -2324,6 +2474,7 @@ function caricaShopCliente(){
       var d = doc.data();
       SHOPCLI.prodotti = d.prodotti;
       SHOPCLI.spedizione = d.spedizione || { attiva:false, roma:0, fuori:0 };
+      SHOPCLI.vetrina = d.vetrina || null;
       SHOPCLI.waNumber = d.waNumber || '';
       SHOPCLI.nomeAtt = d.nome || '';
       SHOPCLI.caricato = true;
@@ -2348,6 +2499,7 @@ function shopFallbackLocale(){
         formati:p.formati||[], stripe:p.stripe||'' };
     });
   SHOPCLI.spedizione = state.shopSped || { attiva:false, roma:0, fuori:0 };
+  SHOPCLI.vetrina = state.shopVetrina || null;
   SHOPCLI.waNumber = state.botCat.waNumber || '';
   SHOPCLI.nomeAtt = state.settings.nome || '';
   SHOPCLI.caricato = true;
@@ -2396,14 +2548,12 @@ function renderClienteShop(){
         var soloRit = p.vendita === 'ritiro';
         var badges = (soloRit ? '<span class="badge grigio">🏪 solo ritiro</span>' : '') +
           (esaurito ? '<span class="badge err">ESAURITO</span>' : (pochi ? '<span class="badge oro">Ultimi ' + stockN + '</span>' : ''));
+        var badgesHtml = badges ? '<div class="badges-foto">' + badges + '</div>' : '';
         var fotoBlocco = p.foto
-          ? '<div class="pcard-foto"><img src="' + esc(p.foto) + '" onerror="this.parentElement.style.display=\'none\'">' +
-            (badges ? '<div class="badges-foto">' + badges + '</div>' : '') + '</div>'
-          : '';
-        /* Senza foto i badge restano sopra il nome, così Esaurito/Ultimi/Solo ritiro si vedono comunque */
-        var badgesSenzaFoto = (!p.foto && badges) ? '<div style="margin-bottom:6px">' + badges + '</div>' : '';
+          ? '<div class="pcard-foto"><img src="' + esc(p.foto) + '" onerror="this.classList.add(\'ph\');this.parentElement.innerHTML=\'<span>' + esc((p.nome||'?').charAt(0)) + '</span>\'">' + badgesHtml + '</div>'
+          : '<div class="pcard-foto ph"><span>' + esc((p.nome||'?').charAt(0).toUpperCase()) + '</span>' + badgesHtml + '</div>';
         return '<div class="prodotto-card">' + fotoBlocco +
-          '<div class="pcard-body">' + badgesSenzaFoto +
+          '<div class="pcard-body">' +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">' +
             '<div class="pnome">' + esc(p.nome) + '</div>' +
             '<div class="pprezzo">' + euro(prezzoSel(p, i)) + (p.um === 'kg' ? '/kg' : '') + '</div>' +
@@ -2426,10 +2576,28 @@ function renderClienteShop(){
       '<button class="btn oro" onclick="mostraCheckout()">Concludi ordine →</button></div>'
     : '';
 
+  var vet = SHOPCLI.vetrina || {};
+  var vhero = (vet.titolo || vet.copertina)
+    ? '<div class="vhero"' + (vet.copertina ? ' style="background-image:url(\'' + esc(vet.copertina) + '\')"' : '') + '>' +
+        (vet.badge ? '<div class="vbadge">' + esc(vet.badge) + '</div>' : '') +
+        (vet.titolo ? '<div class="vtitolo">' + esc(vet.titolo) + '</div>' : '') +
+        (vet.sotto ? '<div class="vsotto">' + esc(vet.sotto) + '</div>' : '') +
+      '</div>'
+    : '';
+
+  var waFoot = telWa(SHOPCLI.waNumber);
+  var vfooter = '<div class="vfooter">' +
+    '<div class="vfb">' + esc(state.settings.nome || SHOPCLI.nomeAtt || '') + '</div>' +
+    '<div class="vfs">powered by Fagotti Suite</div>' +
+    (waFoot
+      ? '<div class="vfl"><a href="https://wa.me/' + waFoot + '" target="_blank">💬 WhatsApp</a>' +
+        '<a href="tel:+' + waFoot + '">📞 Chiama</a></div>'
+      : '') +
+    '</div>';
+
   document.getElementById('v-cliente').innerHTML =
-    heroCliente('Ordina online · ritiro in negozio') + cards +
-    '<div id="checkoutBox"></div>' + bar +
-    '<footer class="firma">powered by Fagotti Suite</footer>';
+    heroCliente('Ordina online · ritiro in negozio', !!vhero) + vhero + cards +
+    '<div id="checkoutBox"></div>' + bar + vfooter;
 }
 
 function scegliGusto(i, nome){
